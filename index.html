@@ -1,0 +1,1975 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HeightMate Pro - Family Growth Tracker 🌱</title>
+    <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;600;700&family=Bubblegum+Sans&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        :root {
+            --sky: #87CEEB; --grass: #90EE90; --sun: #FFD700; --pink: #FF6B9D;
+            --white: #FFFEF9; --brown: #8B4513; --purple: #9B59B6; --teal: #3EBFB0;
+            --red: #FF6B6B; --orange: #FFA500; --mint: #4ECDC4;
+            --bg: linear-gradient(180deg, var(--sky) 0%, var(--white) 60%, var(--grass) 100%);
+            --card: #ffffff; --shadow: 0 10px 30px rgba(0,0,0,0.15);
+            --txt: #333; --txt2: var(--brown); --inp: #fff;
+            --hist: var(--white); --nav: rgba(255,255,255,0.95);
+        }
+        body.dark {
+            --bg: linear-gradient(180deg, #1a1a2e 0%, #16213e 60%, #0f3460 100%);
+            --card: #1e2a3a; --shadow: 0 10px 30px rgba(0,0,0,0.5);
+            --txt: #e0e0e0; --txt2: #aaa; --inp: #2a3a4a;
+            --hist: #1a2a3a; --nav: rgba(20,30,45,0.97); --white: #1e2a3a;
+        }
+        body { font-family:'Fredoka',sans-serif; background:var(--bg); min-height:100vh; overflow-x:hidden; color:var(--txt); transition:background .4s,color .3s; }
+        .cloud { position:absolute; background:white; border-radius:100px; opacity:.7; animation:drift 20s infinite ease-in-out; pointer-events:none; }
+        .cloud::before,.cloud::after { content:''; position:absolute; background:white; border-radius:100px; }
+        .cloud-1 { width:100px; height:40px; top:10%; left:-100px; }
+        .cloud-1::before { width:50px; height:50px; top:-25px; left:15px; }
+        .cloud-1::after { width:60px; height:40px; top:-15px; right:15px; }
+        .cloud-2 { width:120px; height:45px; top:20%; left:-120px; animation-delay:7s; }
+        .cloud-2::before { width:60px; height:60px; top:-30px; left:20px; }
+        .cloud-2::after { width:70px; height:45px; top:-20px; right:20px; }
+        @keyframes drift { 0%,100%{transform:translateX(0) translateY(0)} 50%{transform:translateX(calc(100vw + 200px)) translateY(-20px)} }
+        .sun-ball { position:absolute; top:5%; right:10%; width:80px; height:80px; background:var(--sun); border-radius:50%; box-shadow:0 0 40px rgba(255,215,0,.6); animation:glow 4s ease-in-out infinite; pointer-events:none; }
+        @keyframes glow { 0%,100%{transform:scale(1)} 50%{transform:scale(1.1); box-shadow:0 0 60px rgba(255,215,0,.8)} }
+
+        /* ── LOGIN ── */
+        .login-screen { display:flex; align-items:center; justify-content:center; min-height:100vh; padding:20px; }
+        .login-card { background:white; border-radius:30px; padding:50px; max-width:500px; width:100%; box-shadow:0 20px 60px rgba(0,0,0,.3); border:4px solid var(--purple); text-align:center; animation:slideDown .6s ease; }
+        .login-title { font-family:'Bubblegum Sans',cursive; font-size:3rem; color:var(--purple); margin-bottom:10px; }
+        .login-sub { color:var(--brown); font-size:1.2rem; margin-bottom:30px; }
+        .inp { width:100%; padding:15px; border:3px solid var(--teal); border-radius:20px; font-size:1.1rem; font-family:'Fredoka',sans-serif; margin-bottom:15px; transition:all .3s; background:var(--inp); color:var(--txt); }
+        .inp:focus { outline:none; border-color:var(--pink); box-shadow:0 0 15px rgba(255,107,157,.3); }
+        .inp-row { display:flex; gap:10px; }
+        .inp-row .inp { margin-bottom:0; }
+        .btn { background:linear-gradient(135deg,var(--pink),var(--sun)); color:white; border:none; padding:15px 40px; border-radius:50px; font-size:1.3rem; font-weight:700; cursor:pointer; transition:all .3s; font-family:'Fredoka',sans-serif; box-shadow:0 5px 15px rgba(0,0,0,.2); width:100%; margin-top:10px; }
+        .btn:hover { transform:translateY(-3px) scale(1.05); box-shadow:0 8px 20px rgba(0,0,0,.3); }
+        .btn:disabled { background:#ccc; cursor:not-allowed; transform:none; }
+        .toggle-auth { margin-top:20px; color:var(--purple); cursor:pointer; text-decoration:underline; }
+        .google-btn { width:100%; display:flex; align-items:center; justify-content:center; gap:12px; background:#fff; border:2.5px solid #ddd; border-radius:50px; padding:14px 20px; font-family:'Fredoka',sans-serif; font-size:1.15rem; font-weight:700; color:#444; cursor:pointer; transition:all .3s; box-shadow:0 2px 8px rgba(0,0,0,.1); margin-top:0; }
+        .google-btn:hover { border-color:#4285F4; box-shadow:0 4px 16px rgba(66,133,244,.25); transform:translateY(-2px); }
+        .google-icon { width:22px; height:22px; flex-shrink:0; }
+
+        /* ── TOP NAV ── */
+        .top-nav { position:sticky; top:0; z-index:200; background:var(--nav); backdrop-filter:blur(12px); border-bottom:3px solid rgba(155,89,182,.2); display:none; align-items:center; justify-content:space-between; padding:12px 24px; box-shadow:0 4px 20px rgba(0,0,0,.1); }
+        .top-nav.active { display:flex; }
+        .nav-brand { font-family:'Bubblegum Sans',cursive; font-size:1.6rem; color:var(--purple); }
+        .nav-actions { display:flex; align-items:center; gap:10px; }
+        .nav-btn { background:none; border:2.5px solid var(--purple); color:var(--purple); border-radius:50%; width:42px; height:42px; font-size:1.2rem; cursor:pointer; transition:all .3s; display:flex; align-items:center; justify-content:center; }
+        .nav-btn:hover,.nav-btn.on { background:var(--purple); color:white; transform:scale(1.1); }
+        .drop { display:none; position:absolute; top:60px; right:20px; background:var(--card); border-radius:20px; box-shadow:0 15px 40px rgba(0,0,0,.25); border:3px solid var(--purple); min-width:260px; z-index:300; overflow:hidden; animation:popIn .3s ease; }
+        .drop.open { display:block; }
+        .drop-hd { background:linear-gradient(135deg,var(--purple),var(--teal)); color:white; padding:15px 20px; font-family:'Bubblegum Sans',cursive; font-size:1.2rem; }
+        .drop-item { display:flex; align-items:center; justify-content:space-between; padding:14px 20px; border-bottom:1px solid rgba(155,89,182,.15); cursor:pointer; transition:background .2s; }
+        .drop-item:last-child { border-bottom:none; }
+        .drop-item:hover { background:rgba(155,89,182,.1); }
+        .drop-label { font-size:1rem; font-weight:600; color:var(--txt); display:flex; align-items:center; gap:8px; }
+        .tog { width:44px; height:24px; background:#ddd; border-radius:12px; position:relative; cursor:pointer; transition:background .3s; flex-shrink:0; }
+        .tog.on { background:var(--teal); }
+        .tog::after { content:''; position:absolute; width:18px; height:18px; background:white; border-radius:50%; top:3px; left:3px; transition:left .3s; box-shadow:0 2px 5px rgba(0,0,0,.3); }
+        .tog.on::after { left:23px; }
+
+        /* ── MAIN APP ── */
+        .container { max-width:1400px; margin:0 auto; padding:20px; position:relative; z-index:10; display:none; }
+        .container.active { display:block; }
+        header { text-align:center; margin-bottom:20px; animation:slideDown .8s ease-out; }
+        @keyframes slideDown { from{opacity:0;transform:translateY(-50px)} to{opacity:1;transform:translateY(0)} }
+        @keyframes popIn { from{opacity:0;transform:scale(.9)} to{opacity:1;transform:scale(1)} }
+        h1 { font-family:'Bubblegum Sans',cursive; font-size:2.8rem; color:var(--purple); text-shadow:3px 3px 0 var(--sun),6px 6px 0 var(--pink); margin-bottom:8px; }
+        .tagline { font-size:1.1rem; color:var(--txt2); font-weight:600; }
+
+        /* ── ENTRY PANEL ── */
+        .entry-section { background:var(--card); border-radius:30px; padding:25px; margin-bottom:30px; box-shadow:var(--shadow); border:4px solid var(--teal); transition:background .3s; }
+        .entry-tabs { display:flex; gap:10px; justify-content:center; margin-bottom:20px; flex-wrap:wrap; }
+        .entry-tab { background:transparent; border:3px solid var(--teal); color:var(--teal); border-radius:30px; padding:10px 22px; font-family:'Fredoka',sans-serif; font-size:1rem; font-weight:600; cursor:pointer; transition:all .3s; }
+        .entry-tab.active { background:var(--teal); color:white; }
+        .entry-panel { display:none; }
+        .entry-panel.active { display:block; }
+        .bt-btn { background:linear-gradient(135deg,var(--teal),var(--purple)); color:white; border:none; padding:15px 40px; border-radius:50px; font-size:1.2rem; font-weight:700; cursor:pointer; transition:all .3s; font-family:'Fredoka',sans-serif; box-shadow:0 5px 15px rgba(0,0,0,.2); }
+        .bt-btn:hover { transform:translateY(-3px) scale(1.05); }
+        .bt-btn:disabled { background:#ccc; cursor:not-allowed; transform:none; }
+        .bt-status { margin-top:12px; font-size:1.1rem; font-weight:600; }
+        .bt-wait { background:linear-gradient(135deg,var(--sun),var(--orange)); color:white; padding:18px; border-radius:18px; margin-top:12px; font-size:1.2rem; font-weight:700; display:none; animation:glow2 1.5s ease-in-out infinite; }
+        .bt-wait.show { display:block; }
+        @keyframes glow2 { 0%,100%{opacity:1} 50%{opacity:.7} }
+        .manual-row { display:flex; gap:10px; align-items:center; justify-content:center; flex-wrap:wrap; }
+        .manual-row .inp { max-width:160px; margin:0; }
+        .manual-row .btn { width:auto; margin:0; padding:14px 28px; font-size:1rem; }
+        .bmi-result { background:linear-gradient(135deg,var(--mint),var(--teal)); color:white; border-radius:20px; padding:18px 24px; margin-top:15px; display:none; font-size:1.1rem; font-weight:600; text-align:center; }
+        .bmi-result.show { display:block; }
+        .bmi-big { font-size:2.5rem; font-family:'Bubblegum Sans',cursive; display:block; }
+
+        /* ── PROFILES ── */
+        .profile-section { background:var(--card); border-radius:30px; padding:30px; margin-bottom:30px; box-shadow:var(--shadow); border:4px solid var(--pink); transition:background .3s; }
+        .profile-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(180px,1fr)); gap:15px; margin-bottom:20px; }
+        .pcard { border-radius:20px; padding:20px; cursor:pointer; transition:all .3s; color:white; text-align:center; border:3px solid transparent; position:relative; }
+        .pcard:hover { transform:translateY(-5px); box-shadow:0 10px 20px rgba(0,0,0,.2); }
+        .pcard.active { border:3px solid var(--sun); box-shadow:0 0 20px rgba(255,215,0,.5); }
+        .pcard .av { font-size:3rem; margin-bottom:8px; }
+        .pcard .pname { font-family:'Bubblegum Sans',cursive; font-size:1.2rem; }
+        .pcard .pmeta { font-size:.85rem; margin-top:4px; opacity:.9; }
+        .pcard .pbadge { font-size:.8rem; background:rgba(255,255,255,.25); border-radius:10px; padding:3px 8px; margin-top:6px; display:inline-block; }
+        .p-acts { display:flex; gap:5px; margin-top:10px; justify-content:center; }
+        .p-act { background:rgba(255,255,255,.3); border:2px solid rgba(255,255,255,.7); color:white; border-radius:12px; padding:5px 12px; font-size:.85rem; cursor:pointer; transition:all .2s; font-family:'Fredoka',sans-serif; font-weight:600; }
+        .p-act:hover { background:rgba(255,255,255,.5); transform:scale(1.05); }
+        .p-act.del:hover { background:rgba(255,50,50,.5); border-color:rgba(255,50,50,.8); }
+        .add-pcard { background:var(--card) !important; color:var(--purple) !important; border:3px dashed var(--purple) !important; display:flex !important; flex-direction:column; align-items:center; justify-content:center; font-size:3rem; }
+
+        /* ── CARDS / GRID ── */
+        .main-grid { display:grid; grid-template-columns:1fr 1fr; gap:30px; margin-bottom:40px; }
+        .card { background:var(--card); border-radius:30px; padding:30px; box-shadow:var(--shadow); border:4px solid var(--purple); position:relative; overflow:hidden; transition:transform .3s,box-shadow .3s,background .3s; }
+        .card:hover { transform:translateY(-6px); box-shadow:0 20px 40px rgba(0,0,0,.2); }
+        .card-title { font-family:'Bubblegum Sans',cursive; font-size:2rem; color:var(--pink); margin-bottom:20px; display:flex; align-items:center; gap:10px; }
+        .emoji { font-size:2.5rem; animation:bounce 2s ease-in-out infinite; }
+        @keyframes bounce { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-10px)} }
+        .stats-grid { display:grid; grid-template-columns:1fr 1fr; gap:20px; margin-top:20px; }
+        .stat-box { background:linear-gradient(135deg,var(--mint),var(--teal)); border-radius:20px; padding:20px; text-align:center; color:white; }
+        .stat-num { font-size:2.2rem; font-weight:700; font-family:'Bubblegum Sans',cursive; }
+        .stat-lbl { font-size:.95rem; margin-top:5px; }
+        .chart-container { position:relative; height:280px; margin-top:20px; }
+        .chart-tabs { display:flex; gap:8px; flex-wrap:wrap; }
+        .ctab { background:transparent; border:2px solid var(--purple); color:var(--purple); border-radius:20px; padding:7px 16px; font-family:'Fredoka',sans-serif; font-size:.9rem; font-weight:600; cursor:pointer; transition:all .2s; }
+        .ctab.active { background:var(--purple); color:white; }
+        .hist-list { max-height:400px; overflow-y:auto; }
+        .hist-item { background:var(--hist); border-left:5px solid var(--sun); padding:15px; margin-bottom:12px; border-radius:15px; display:flex; justify-content:space-between; align-items:center; animation:slideIn .4s ease-out; transition:background .3s; }
+        @keyframes slideIn { from{opacity:0;transform:translateX(-30px)} to{opacity:1;transform:translateX(0)} }
+        .del-m { background:rgba(255,107,157,.15); border:2px solid var(--pink); color:var(--pink); border-radius:10px; padding:5px 12px; cursor:pointer; font-family:'Fredoka',sans-serif; font-size:.85rem; transition:all .2s; }
+        .del-m:hover { background:var(--pink); color:white; }
+
+        /* ── GROWTH INTELLIGENCE ── */
+        .intel-card { border:4px solid var(--mint); }
+        .intel-card .card-title { color:var(--teal); }
+        .intel-msg { border-radius:18px; padding:16px 20px; margin-bottom:12px; font-size:1rem; font-weight:600; display:flex; align-items:flex-start; gap:12px; }
+        .intel-msg.normal { background:rgba(78,205,196,.15); border-left:5px solid var(--mint); color:var(--teal); }
+        .intel-msg.warn { background:rgba(255,165,0,.15); border-left:5px solid var(--orange); color:#b8720a; }
+        .intel-msg.good { background:rgba(144,238,144,.2); border-left:5px solid #4caf50; color:#2d7a2d; }
+        .intel-msg.info { background:rgba(155,89,182,.12); border-left:5px solid var(--purple); color:var(--purple); }
+        body.dark .intel-msg.normal { color:#4ecdc4; }
+        body.dark .intel-msg.warn { color:#ffa500; }
+        body.dark .intel-msg.good { color:#90ee90; }
+        body.dark .intel-msg.info { color:#c39bd3; }
+        .intel-icon { font-size:1.6rem; flex-shrink:0; }
+        .intel-text { line-height:1.5; }
+        .intel-head { font-size:1.1rem; font-weight:700; }
+
+        /* ── ACHIEVEMENTS ── */
+        .ach-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(110px,1fr)); gap:12px; margin-top:20px; }
+        .ach { background:var(--card); border-radius:18px; padding:18px 12px; text-align:center; border:3px solid #ddd; transition:all .3s; }
+        .ach.on { border-color:var(--sun); background:linear-gradient(135deg,var(--sun),var(--orange)); color:white; transform:scale(1.05); box-shadow:0 5px 15px rgba(255,215,0,.5); }
+        .ach.off { opacity:.5; filter:grayscale(100%); }
+        .ach-ico { font-size:2.2rem; margin-bottom:8px; }
+        .ach-nm { font-size:.85rem; font-weight:600; }
+
+        /* ── MILESTONE BANNER ── */
+        .milestone { background:linear-gradient(135deg,var(--purple),var(--pink)); color:white; border-radius:20px; padding:16px 22px; margin-bottom:20px; display:none; align-items:center; gap:15px; font-size:1.1rem; font-weight:700; animation:slideDown .5s ease; }
+        .milestone.show { display:flex; }
+        .milestone .xbtn { margin-left:auto; cursor:pointer; font-size:1.2rem; background:rgba(255,255,255,.2); border:none; color:white; border-radius:10px; padding:4px 10px; font-family:'Fredoka',sans-serif; }
+
+        /* ── MODALS ── */
+        .modal { display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,.55); z-index:1000; align-items:center; justify-content:center; }
+        .modal.open { display:flex; }
+        .modal-box { background:var(--card); border-radius:30px; padding:40px; max-width:520px; width:90%; box-shadow:0 20px 60px rgba(0,0,0,.3); border:4px solid var(--purple); max-height:90vh; overflow-y:auto; animation:popIn .3s ease; }
+        .modal-title { font-family:'Bubblegum Sans',cursive; font-size:2rem; color:var(--purple); margin-bottom:20px; text-align:center; }
+        .form-row { display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:5px; }
+        .form-label { display:block; margin:12px 0 6px; font-weight:600; font-size:.95rem; color:var(--txt2); }
+        .av-grid { display:grid; grid-template-columns:repeat(5,1fr); gap:8px; margin:12px 0; max-height:200px; overflow-y:auto; }
+        .av-opt { font-size:2rem; padding:10px; border-radius:12px; cursor:pointer; text-align:center; border:3px solid transparent; transition:all .3s; }
+        .av-opt:hover { background:rgba(155,89,182,.1); transform:scale(1.1); }
+        .av-opt.sel { border:3px solid var(--sun); background:rgba(255,215,0,.1); }
+        .modal-btns { display:flex; gap:10px; margin-top:20px; }
+        .btn-sec { background:#ccc; color:#333; }
+        .btn-danger { background:linear-gradient(135deg,#e74c3c,#c0392b); }
+        .gender-row { display:flex; gap:10px; margin-bottom:5px; }
+        .gender-btn { flex:1; padding:12px; border:3px solid #ddd; border-radius:15px; background:var(--card); color:var(--txt); font-family:'Fredoka',sans-serif; font-size:1rem; font-weight:600; cursor:pointer; transition:all .2s; text-align:center; }
+        .gender-btn.sel { border-color:var(--teal); background:rgba(62,191,176,.15); color:var(--teal); }
+        select.inp { appearance:none; -webkit-appearance:none; }
+
+        /* ── UTILS ── */
+        .spinner { display:none; position:fixed; top:50%; left:50%; transform:translate(-50%,-50%); width:60px; height:60px; border:6px solid rgba(200,200,200,.3); border-top:6px solid var(--pink); border-radius:50%; animation:spin 1s linear infinite; z-index:10000; }
+        .spinner.show { display:block; }
+        @keyframes spin { to{transform:translate(-50%,-50%) rotate(360deg)} }
+        .toast { position:fixed; top:75px; right:20px; background:linear-gradient(135deg,var(--teal),var(--purple)); color:white; padding:16px 24px; border-radius:20px; font-size:1.1rem; font-weight:700; z-index:10000; box-shadow:0 10px 30px rgba(0,0,0,.3); animation:slideIn .4s ease; max-width:320px; }
+        .confetti-p { position:fixed; width:10px; height:10px; border-radius:50%; animation:fall 3s linear; pointer-events:none; z-index:9999; }
+        @keyframes fall { to{transform:translateY(100vh) rotate(360deg); opacity:0} }
+        .auth-msg { padding:12px 16px; border-radius:15px; margin:10px 0; text-align:center; font-weight:600; }
+        .auth-msg.err { background:var(--pink); color:white; }
+        .auth-msg.ok { background:var(--mint); color:white; }
+        .export-btn { background:linear-gradient(135deg,#27ae60,#2ecc71); color:white; border:none; padding:10px 22px; border-radius:18px; font-family:'Fredoka',sans-serif; font-weight:600; font-size:.95rem; cursor:pointer; transition:all .3s; }
+        .export-btn:hover { transform:translateY(-2px); box-shadow:0 5px 15px rgba(0,0,0,.2); }
+        .full-span { grid-column:span 2; }
+        .no-data { text-align:center; color:#999; padding:20px; }
+
+        /* ── DASHBOARD ── */
+        .dashboard { background:var(--card); border-radius:30px; padding:28px 30px; margin-bottom:30px; box-shadow:var(--shadow); border:4px solid var(--purple); transition:background .3s; }
+        .dash-title { font-family:'Bubblegum Sans',cursive; font-size:1.9rem; color:var(--purple); margin-bottom:20px; display:flex; align-items:center; gap:10px; }
+        .dash-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(160px,1fr)); gap:14px; }
+        .dash-tile { border-radius:22px; padding:18px 16px; text-align:center; color:white; position:relative; overflow:hidden; }
+        .dash-tile-ico { font-size:2rem; margin-bottom:6px; }
+        .dash-tile-val { font-family:'Bubblegum Sans',cursive; font-size:1.8rem; line-height:1; }
+        .dash-tile-lbl { font-size:.85rem; margin-top:4px; opacity:.9; font-weight:600; }
+        .dash-tile.t1 { background:linear-gradient(135deg,#9B59B6,#8e44ad); }
+        .dash-tile.t2 { background:linear-gradient(135deg,#3EBFB0,#2c9e92); }
+        .dash-tile.t3 { background:linear-gradient(135deg,#FF6B9D,#e0527e); }
+        .dash-tile.t4 { background:linear-gradient(135deg,#F39C12,#d68910); }
+        .dash-tile.t5 { background:linear-gradient(135deg,#27ae60,#1e8449); }
+        .dash-tile.t6 { background:linear-gradient(135deg,#3498DB,#2980b9); }
+
+        /* ── REMINDER BANNER ── */
+        .reminder-bar { background:linear-gradient(135deg,#F39C12,#e67e22); color:white; border-radius:22px; padding:16px 22px; margin-bottom:22px; display:none; align-items:center; gap:14px; font-size:1rem; font-weight:700; }
+        .reminder-bar.show { display:flex; }
+        .reminder-bar .rbtn { margin-left:auto; background:rgba(255,255,255,.25); border:none; color:white; border-radius:12px; padding:8px 18px; font-family:'Fredoka',sans-serif; font-weight:700; cursor:pointer; font-size:.95rem; flex-shrink:0; }
+        .reminder-bar .rbtn:hover { background:rgba(255,255,255,.4); }
+
+        /* ── PDF BUTTON ── */
+        .pdf-btn { background:linear-gradient(135deg,#e74c3c,#c0392b); color:white; border:none; padding:10px 22px; border-radius:18px; font-family:'Fredoka',sans-serif; font-weight:700; font-size:.95rem; cursor:pointer; transition:all .3s; display:inline-flex; align-items:center; gap:6px; }
+        .pdf-btn:hover { transform:translateY(-2px); box-shadow:0 5px 15px rgba(0,0,0,.25); }
+
+        /* ── MOBILE QUICK ACTIONS ── */
+        .quick-actions { display:none; }
+        @media(max-width:600px) {
+            .quick-actions { display:grid; grid-template-columns:1fr 1fr 1fr; gap:10px; margin-bottom:22px; }
+            .qa-btn { background:var(--card); border:3px solid var(--purple); border-radius:20px; padding:16px 8px; text-align:center; cursor:pointer; transition:all .3s; color:var(--purple); font-weight:700; font-size:.85rem; font-family:'Fredoka',sans-serif; }
+            .qa-btn:active { background:var(--purple); color:white; transform:scale(.96); }
+            .qa-btn .qa-ico { font-size:1.8rem; display:block; margin-bottom:4px; }
+        }
+
+        @media(max-width:768px) {
+            .main-grid { grid-template-columns:1fr; }
+            .full-span { grid-column:span 1; }
+            h1 { font-size:1.8rem; }
+            .form-row { grid-template-columns:1fr; }
+            .profile-grid { grid-template-columns:repeat(auto-fill,minmax(140px,1fr)); }
+            .card { padding:18px; }
+            .stats-grid { grid-template-columns:1fr 1fr; }
+            .btn { font-size:1.1rem; padding:16px 20px; }
+            .entry-tab { font-size:.9rem; padding:10px 14px; }
+            .card-title { font-size:1.6rem; }
+            .dash-grid { grid-template-columns:repeat(2,1fr); }
+            .chart-tabs { gap:6px; }
+            .ctab { font-size:.8rem; padding:6px 12px; }
+            .modal-box { padding:24px; }
+            .bt-btn { width:100%; }
+            .hist-item { flex-wrap:wrap; gap:8px; }
+            .nav-brand { font-size:1.1rem; }
+            .export-btn, .pdf-btn { font-size:.85rem; padding:8px 14px; }
+        }
+        @media(max-width:400px) {
+            .dash-grid { grid-template-columns:1fr 1fr; }
+            h1 { font-size:1.5rem; }
+        }
+    </style>
+</head>
+<body>
+    <div class="sun-ball"></div>
+    <div class="cloud cloud-1"></div>
+    <div class="cloud cloud-2"></div>
+    <div class="spinner" id="spinner"></div>
+
+    <!-- LOGIN -->
+    <div class="login-screen" id="loginScreen">
+        <div class="login-card">
+            <div class="login-title">🌈 HeightMate Pro</div>
+            <div class="login-sub">Track Your Family's Growth!</div>
+            <div id="authMsg"></div>
+            <div id="loginForm">
+                <input class="inp" id="lEmail" type="email" placeholder="Email Address">
+                <input class="inp" id="lPass" type="password" placeholder="Password">
+                <button class="btn" onclick="doLogin()">🔑 Login</button>
+                <div style="display:flex;align-items:center;gap:10px;margin:16px 0 10px;">
+                    <div style="flex:1;height:2px;background:rgba(155,89,182,.2);border-radius:2px;"></div>
+                    <span style="color:#aaa;font-size:.95rem;font-weight:600;">or</span>
+                    <div style="flex:1;height:2px;background:rgba(155,89,182,.2);border-radius:2px;"></div>
+                </div>
+                <button class="google-btn" onclick="signInWithGoogle()">
+                    <svg class="google-icon" viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.18 1.48-4.97 2.29-8.16 2.29-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/><path fill="none" d="M0 0h48v48H0z"/></svg>
+                    Continue with Google
+                </button>
+                <div style="display:flex;align-items:center;gap:10px;margin:10px 0 6px;">
+                    <div style="flex:1;height:2px;background:rgba(155,89,182,.2);border-radius:2px;"></div>
+                    <span style="color:#aaa;font-size:.95rem;font-weight:600;">or</span>
+                    <div style="flex:1;height:2px;background:rgba(155,89,182,.2);border-radius:2px;"></div>
+                </div>
+                <button class="btn" onclick="guestLogin()" style="background:linear-gradient(135deg,#636e72,#b2bec3);margin-top:0;">👤 Continue as Guest</button>
+                <p style="color:#aaa;font-size:.85rem;margin-top:8px;">Guest data is stored locally on this device only</p>
+                <p class="toggle-auth" onclick="swapAuth()">Don't have an account? Sign up!</p>
+            </div>
+            <div id="signupForm" style="display:none">
+                <input class="inp" id="sFamily" type="text" placeholder="Family Name (e.g. Smith Family)">
+                <input class="inp" id="sEmail" type="email" placeholder="Email Address">
+                <input class="inp" id="sPass" type="password" placeholder="Password (min 6 characters)">
+                <button class="btn" onclick="doSignup()">🎉 Create Account</button>
+                <div style="display:flex;align-items:center;gap:10px;margin:14px 0 10px;">
+                    <div style="flex:1;height:2px;background:rgba(155,89,182,.2);border-radius:2px;"></div>
+                    <span style="color:#aaa;font-size:.95rem;font-weight:600;">or sign up with</span>
+                    <div style="flex:1;height:2px;background:rgba(155,89,182,.2);border-radius:2px;"></div>
+                </div>
+                <button class="google-btn" onclick="signInWithGoogle()">
+                    <svg class="google-icon" viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.18 1.48-4.97 2.29-8.16 2.29-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/><path fill="none" d="M0 0h48v48H0z"/></svg>
+                    Sign up with Google
+                </button>
+                <p class="toggle-auth" onclick="swapAuth()">Already have an account? Login!</p>
+                <button class="btn" onclick="googleLogin()" style="background:linear-gradient(135deg,#4285F4,#34A853);margin-top:10px;">
+                🌐 Sign in with Google
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- TOP NAV -->
+    <nav class="top-nav" id="topNav">
+        <div class="nav-brand" id="navName">🌈 HeightMate Pro</div>
+        <div class="nav-actions">
+            <button class="nav-btn" title="Export" onclick="exportAll()">📤</button>
+            <button class="nav-btn" title="Settings" onclick="togDrop()" id="setBtn">⚙️</button>
+            <button class="nav-btn" title="Logout" onclick="doLogout()">👋</button>
+        </div>
+        <div class="drop" id="dropMenu">
+            <div class="drop-item" onclick="openFamilyModal();togDrop()"><span class="drop-label">✏️ Edit Family Name</span><span>→</span></div>
+            <div class="drop-hd">⚙️ Settings</div>
+            <div class="drop-item"><span class="drop-label">🌙 Dark Mode</span><div class="tog" id="togDark" onclick="togDarkMode()"></div></div>
+            <div class="drop-item"><span class="drop-label">🎉 Confetti Effects</span><div class="tog on" id="togConf" onclick="togConfetti()"></div></div>
+            <div class="drop-item"><span class="drop-label">🔔 Notifications</span><div class="tog on" id="togNotif" onclick="togNotif()"></div></div>
+            <div class="drop-item" onclick="exportAll();togDrop()"><span class="drop-label">📤 Export All Data</span><span>→</span></div>
+            <div class="drop-item" onclick="doLogout()"><span class="drop-label" style="color:var(--pink)">👋 Logout</span><span>→</span></div>
+        </div>
+    </nav>
+
+    <!-- MAIN APP -->
+    <div class="container" id="mainApp">
+        <header>
+            <h1 id="familyTitle">🌈 HeightMate Pro 🌈</h1>
+            <p class="tagline">Track Every Kid's Amazing Growth Journey! 📏✨</p>
+        </header>
+
+        <div class="milestone" id="milestoneBanner">
+            <span id="milestoneText"></span>
+            <button class="xbtn" onclick="this.parentElement.classList.remove('show')">✕</button>
+        </div>
+
+        <!-- REMINDER BANNER -->
+        <div class="reminder-bar" id="reminderBar">
+            <span>⏰</span>
+            <span id="reminderText">Time to measure again!</span>
+            <button class="rbtn" onclick="switchTabAndScroll()">📏 Measure Now</button>
+            <button class="rbtn" style="background:rgba(0,0,0,.2)" onclick="document.getElementById('reminderBar').classList.remove('show')">✕</button>
+        </div>
+
+        <!-- DASHBOARD -->
+        <div class="dashboard" id="dashboardPanel">
+            <div class="dash-title">🏠 Family Dashboard</div>
+            <div class="dash-grid" id="dashGrid">
+                <div class="dash-tile t1"><div class="dash-tile-ico">👶</div><div class="dash-tile-val" id="dProfiles">—</div><div class="dash-tile-lbl">Profiles</div></div>
+                <div class="dash-tile t2"><div class="dash-tile-ico">📏</div><div class="dash-tile-val" id="dLastMeas">—</div><div class="dash-tile-lbl">Last Measurement</div></div>
+                <div class="dash-tile t3"><div class="dash-tile-ico">📈</div><div class="dash-tile-val" id="dGrowthStatus">—</div><div class="dash-tile-lbl">Growth Status</div></div>
+                <div class="dash-tile t4"><div class="dash-tile-ico">🔢</div><div class="dash-tile-val" id="dTotalMeas">—</div><div class="dash-tile-lbl">Total Measurements</div></div>
+                <div class="dash-tile t5"><div class="dash-tile-ico">📐</div><div class="dash-tile-val" id="dCurHeight">—</div><div class="dash-tile-lbl">Selected Height</div></div>
+                <div class="dash-tile t6"><div class="dash-tile-ico">⏳</div><div class="dash-tile-val" id="dNextMeas">—</div><div class="dash-tile-lbl">Next Reminder</div></div>
+            </div>
+        </div>
+
+        <!-- MOBILE QUICK ACTIONS -->
+        <div class="quick-actions">
+            <div class="qa-btn" onclick="switchTabAndScroll('bt')"><span class="qa-ico">🔵</span>Connect</div>
+            <div class="qa-btn" onclick="switchTabAndScroll('manual')"><span class="qa-ico">📏</span>Measure</div>
+            <div class="qa-btn" onclick="document.getElementById('mainChart').scrollIntoView({behavior:'smooth'})"><span class="qa-ico">📈</span>View Growth</div>
+        </div>
+
+        <!-- ENTRY SECTION -->
+        <div class="entry-section">
+            <h3 style="font-family:'Bubblegum Sans',cursive;color:var(--teal);margin-bottom:15px;text-align:center;">📱 Add a Measurement</h3>
+            <div class="entry-tabs">
+                <button class="entry-tab active" onclick="switchTab('bt',this)">🔵 Bluetooth Device</button>
+                <button class="entry-tab" onclick="switchTab('manual',this)">✏️ Manual Entry</button>
+                <button class="entry-tab" onclick="switchTab('weight',this)">⚖️ Log Weight + BMI</button>
+            </div>
+
+            <div class="entry-panel active" id="panel-bt" style="text-align:center;">
+                <button class="bt-btn" id="btBtn" onclick="connectBT()">🔵 Connect via Bluetooth</button>
+                <div class="bt-status" id="btStatus"><span style="color:var(--pink)">⚪ Not Connected</span></div>
+                <div class="bt-wait" id="btWait">📏 Ready! Stand under the device and press the button...</div>
+            </div>
+
+            <div class="entry-panel" id="panel-manual" style="text-align:center;">
+                <div class="manual-row">
+                    <input class="inp" id="manH" type="number" placeholder="Height (cm)" min="50" max="250" step="0.1">
+                    <button class="btn" onclick="addManualH()" style="width:auto;margin:0;padding:14px 28px;font-size:1rem;">📏 Record Height</button>
+                </div>
+            </div>
+
+            <div class="entry-panel" id="panel-weight" style="text-align:center;">
+                <div class="manual-row">
+                    <input class="inp" id="manW" type="number" placeholder="Weight (kg)" min="5" max="300" step="0.1">
+                    <button class="btn" onclick="addWeight()" style="width:auto;margin:0;padding:14px 28px;font-size:1rem;">⚖️ Calculate BMI</button>
+                </div>
+                <div class="bmi-result" id="bmiResult"></div>
+            </div>
+        </div>
+
+        <!-- PROFILES -->
+        <div class="profile-section">
+            <h3 style="font-family:'Bubblegum Sans',cursive;color:var(--pink);margin-bottom:20px;">👶 Kid Profiles</h3>
+            <div class="profile-grid" id="profileGrid"></div>
+        </div>
+
+        <!-- MAIN GRID -->
+        <div class="main-grid">
+            <!-- Stats -->
+            <div class="card">
+                <div class="card-title"><span class="emoji">📊</span>Growth Stats</div>
+                <div class="stats-grid">
+                    <div class="stat-box"><div class="stat-num" id="stTotal">0</div><div class="stat-lbl">Total Checks</div></div>
+                    <div class="stat-box"><div class="stat-num" id="stGrowth">0</div><div class="stat-lbl">cm Grown!</div></div>
+                    <div class="stat-box"><div class="stat-num" id="stCurrent">--</div><div class="stat-lbl">Current Height</div></div>
+                    <div class="stat-box"><div class="stat-num" id="stAvg">0</div><div class="stat-lbl">cm/month</div></div>
+                </div>
+            </div>
+
+            <!-- Achievements -->
+            <div class="card">
+                <div class="card-title"><span class="emoji">🏆</span>Achievements</div>
+                <div class="ach-grid" id="achGrid"></div>
+            </div>
+
+            <!-- Growth Intelligence -->
+            <div class="card intel-card full-span">
+                <div class="card-title"><span class="emoji">🧠</span>Growth Intelligence</div>
+                <div id="intelContent"><p class="no-data">Select a profile and add measurements to see insights! 💡</p></div>
+            </div>
+
+            <!-- Growth Chart -->
+            <div class="card full-span">
+                <div class="card-title" style="justify-content:space-between;flex-wrap:wrap;gap:10px;">
+                    <span style="display:flex;align-items:center;gap:10px;"><span class="emoji">📈</span>Growth Chart</span>
+                    <div class="chart-tabs">
+                        <button class="ctab active" onclick="switchChartTab('height',this)">📏 Height</button>
+                        <button class="ctab" onclick="switchChartTab('monthly',this)">📅 Monthly Growth</button>
+                        <button class="ctab" onclick="switchChartTab('bmi',this)">⚖️ BMI Trend</button>
+                        <button class="ctab" onclick="switchChartTab('prediction',this)">🔮 Yearly Prediction</button>
+                    </div>
+                </div>
+                <div class="chart-container"><canvas id="mainChart"></canvas></div>
+            </div>
+
+            <!-- History -->
+            <div class="card full-span">
+                <div class="card-title" style="justify-content:space-between;flex-wrap:wrap;gap:10px;">
+                    <span style="display:flex;align-items:center;gap:10px;"><span class="emoji">📜</span>Measurement History</span>
+                    <div style="display:flex;gap:8px;flex-wrap:wrap;">
+                        <button class="export-btn" onclick="exportProfile()">📥 CSV</button>
+                        <button class="pdf-btn" onclick="downloadPDF()">📄 Growth Report PDF</button>
+                    </div>
+                </div>
+                <div class="hist-list" id="histList"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ADD PROFILE MODAL -->
+    <div class="modal" id="addModal">
+        <div class="modal-box">
+            <div class="modal-title">Add New Kid Profile 🎨</div>
+            <label class="form-label">Name:</label>
+            <input class="inp" id="pName" type="text" placeholder="Kid's name">
+            <div class="form-row">
+                <div>
+                    <label class="form-label">Age:</label>
+                    <input class="inp" id="pAge" type="number" placeholder="Age" min="1" max="20">
+                </div>
+                <div>
+                    <label class="form-label">Birthdate:</label>
+                    <input class="inp" id="pBirth" type="date">
+                </div>
+            </div>
+            <label class="form-label">Gender:</label>
+            <div class="gender-row">
+                <div class="gender-btn" onclick="selGender(this,'male')">👦 Boy</div>
+                <div class="gender-btn" onclick="selGender(this,'female')">👧 Girl</div>
+                <div class="gender-btn" onclick="selGender(this,'other')">🧒 Other</div>
+            </div>
+            <input type="hidden" id="pGender" value="">
+            <label class="form-label">Choose Avatar:</label>
+            <div class="av-grid" id="avGrid"></div>
+            <div class="modal-btns">
+                <button class="btn btn-sec" style="flex:1" onclick="closeAddModal()">Cancel</button>
+                <button class="btn" style="flex:1" onclick="saveProfile()">Create! 🎉</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- EDIT PROFILE MODAL -->
+    <div class="modal" id="editModal">
+        <div class="modal-box">
+            <div class="modal-title">Edit Profile ✏️</div>
+            <label class="form-label">Name:</label>
+            <input class="inp" id="eName" type="text" placeholder="Kid's name">
+            <div class="form-row">
+                <div>
+                    <label class="form-label">Age:</label>
+                    <input class="inp" id="eAge" type="number" placeholder="Age" min="1" max="20">
+                </div>
+                <div>
+                    <label class="form-label">Birthdate:</label>
+                    <input class="inp" id="eBirth" type="date">
+                </div>
+            </div>
+            <label class="form-label">Gender:</label>
+            <div class="gender-row" id="editGenderRow">
+                <div class="gender-btn" onclick="selGender(this,'male','edit')">👦 Boy</div>
+                <div class="gender-btn" onclick="selGender(this,'female','edit')">👧 Girl</div>
+                <div class="gender-btn" onclick="selGender(this,'other','edit')">🧒 Other</div>
+            </div>
+            <input type="hidden" id="eGender" value="">
+            <label class="form-label">Choose Avatar:</label>
+            <div class="av-grid" id="eAvGrid"></div>
+            <div class="modal-btns">
+                <button class="btn btn-sec" style="flex:1" onclick="closeEditModal()">Cancel</button>
+                <button class="btn" style="flex:1" onclick="updateProfile()">Save 💾</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- EDIT FAMILY MODAL -->
+    <div class="modal" id="familyModal">
+        <div class="modal-box">
+            <div class="modal-title">Edit Family Name ✏️</div>
+            <label class="form-label">Family Name:</label>
+            <input class="inp" id="famInput" type="text" placeholder="Family Name">
+            <div class="modal-btns">
+                <button class="btn btn-sec" style="flex:1" onclick="closeFamilyModal()">Cancel</button>
+                <button class="btn" style="flex:1" onclick="saveFamilyName()">Save 💾</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- DELETE PROFILE MODAL -->
+    <div class="modal" id="deleteModal">
+        <div class="modal-box">
+            <div class="modal-title">Delete Profile 🗑️</div>
+            <p style="text-align:center;font-size:1.1rem;color:var(--txt2);margin-bottom:20px;">
+                Are you sure you want to delete<br>
+                <strong style="font-size:1.5rem;color:var(--pink)" id="delName"></strong>?<br><br>
+                ⚠️ All measurements will be permanently lost!
+            </p>
+            <div class="modal-btns">
+                <button class="btn btn-sec" style="flex:1" onclick="closeDelModal()">Cancel</button>
+                <button class="btn btn-danger" style="flex:1" onclick="confirmDelete()">Delete 🗑️</button>
+            </div>
+        </div>
+    </div>
+
+<script>
+// ──────────────────────────────────────────────
+// FIREBASE INIT
+// ──────────────────────────────────────────────
+const firebaseConfig = {
+    apiKey: "AIzaSyABPDlqhPeLMgmA7CTpmHi7xhRqXGxPwM0",
+    authDomain: "heightmatepro.firebaseapp.com",
+    projectId: "heightmatepro",
+    storageBucket: "heightmatepro.firebasestorage.app",
+    messagingSenderId: "435638185961",
+    appId: "1:435638185961:web:656c2e19f8dadc2e3a6578"
+};
+firebase.initializeApp(firebaseConfig);
+const auth = firebase.auth();
+const db   = firebase.firestore();
+
+// ──────────────────────────────────────────────
+// STATE
+// ──────────────────────────────────────────────
+let user = null, familyId = null;
+let profiles = [], curPid = null;
+let btDevice = null, btChar = null;
+let mainChart = null;
+let editPid = null, delPid = null;
+let dropOpen = false;
+let currentChartTab = 'height';
+
+const cfg = { dark:false, confetti:true, notif:true };
+
+const AVATARS = ['👦','👧','🧒','👶','🧑','👨','👩','🦸','🦹','🧚','🧙','🤴','👸','🧝','🧛','🐻','🦊','🐼','🦁','🐯','🐧','🦋','🌟','⭐','🌈'];
+
+const ACHIEVEMENTS = [
+    {id:'first',  name:'First Step!',      icon:'👣', type:'m', thr:1},
+    {id:'five',   name:'5 Checks!',        icon:'⭐', type:'m', thr:5},
+    {id:'ten',    name:'10 Checks!',       icon:'💪', type:'m', thr:10},
+    {id:'twenty', name:'Superstar!',       icon:'🌟', type:'m', thr:20},
+    {id:'g1',     name:'Growing Up!',      icon:'🌱', type:'g', thr:1},
+    {id:'g5',     name:'5cm Taller!',      icon:'📏', type:'g', thr:5},
+    {id:'g10',    name:'10cm Taller!',     icon:'🎯', type:'g', thr:10},
+    {id:'g15',    name:'Champion!',        icon:'🏆', type:'g', thr:15},
+];
+
+// WHO growth standards (simplified) cm/year by age
+const WHO_GROWTH = {
+    male:   {2:9,3:8,4:7,5:6.5,6:6,7:6,8:5.5,9:5.5,10:5,11:5.5,12:6,13:7,14:7,15:5,16:3,17:2,18:1},
+    female: {2:8.5,3:7.5,4:7,5:6.5,6:6,7:6,8:5.5,9:5.5,10:6,11:7,12:7,13:5,14:3,15:2,16:1,17:0.5,18:0.5}
+};
+
+// ──────────────────────────────────────────────
+// AUTH
+// ──────────────────────────────────────────────
+auth.onAuthStateChanged(async u => {
+    if (u) { user = u; loadCfg(); await loadFamily(); showApp(); }
+    else    { showLogin(); }
+});
+
+function swapAuth() {
+    const lf = document.getElementById('loginForm');
+    const sf = document.getElementById('signupForm');
+    const show = lf.style.display !== 'none';
+    lf.style.display = show ? 'none' : 'block';
+    sf.style.display = show ? 'block' : 'none';
+    document.getElementById('authMsg').innerHTML = '';
+}
+
+async function doLogin() {
+    const e = V('lEmail'), p = V('lPass');
+    if (!e||!p) { authMsg('Please fill in all fields!','err'); return; }
+    spin(true);
+    try { await auth.signInWithEmailAndPassword(e, p); }
+    catch(err) { authMsg(authErrMsg(err.code),'err'); }
+    finally { spin(false); }
+}
+
+async function doSignup() {
+    const fn = V('sFamily'), e = V('sEmail'), p = V('sPass');
+    if (!fn||!e||!p) { authMsg('Please fill in all fields!','err'); return; }
+    if (p.length < 6) { authMsg('Password must be at least 6 characters!','err'); return; }
+    spin(true);
+    try {
+        const c = await auth.createUserWithEmailAndPassword(e, p);
+        await db.collection('families').doc(c.user.uid).set({ familyName:fn, email:e, createdAt:firebase.firestore.FieldValue.serverTimestamp() });
+    } catch(err) { authMsg(authErrMsg(err.code),'err'); }
+    finally { spin(false); }
+}
+
+async function doLogout() {
+    if (!confirm('Are you sure you want to logout?')) return;
+    if (btDevice?.gatt?.connected) await btDevice.gatt.disconnect();
+    if (isGuest) {
+        isGuest = false;
+        user = null; familyId = null; profiles = []; curPid = null;
+        showLogin();
+        return;
+    }
+    await auth.signOut();
+}
+
+// ──────────────────────────────────────────────
+// GOOGLE SIGN-IN
+// ──────────────────────────────────────────────
+async function signInWithGoogle() {
+    spin(true);
+    try {
+        const provider = new firebase.auth.GoogleAuthProvider();
+        provider.setCustomParameters({ prompt: 'select_account' });
+        const result = await auth.signInWithPopup(provider);
+        const u = result.user;
+        // Check if family doc exists; create one for new Google users
+        const fRef = db.collection('families').doc(u.uid);
+        const fDoc = await fRef.get();
+        if (!fDoc.exists) {
+            const displayName = u.displayName || 'My Family';
+            await fRef.set({
+                familyName: displayName.includes('Family') ? displayName : displayName + "'s Family",
+                email: u.email,
+                createdAt: firebase.firestore.FieldValue.serverTimestamp()
+            });
+        }
+        // onAuthStateChanged will fire and load the app automatically
+    } catch(err) {
+        console.error(err);
+        if (err.code === 'auth/popup-closed-by-user' || err.code === 'auth/cancelled-popup-request') {
+            // User closed popup — do nothing
+        } else if (err.code === 'auth/popup-blocked') {
+            authMsg('Popup was blocked by your browser. Please allow popups for this site and try again.', 'err');
+        } else {
+            authMsg(authErrMsg(err.code) || 'Google sign-in failed. Please try again.', 'err');
+        }
+    } finally {
+        spin(false);
+    }
+}
+let isGuest = false;
+const GUEST_KEY = 'hm_guest_data';
+
+function guestLogin() {
+    isGuest = true;
+    user = { uid: 'guest' };
+    familyId = 'guest';
+    loadCfg();
+    loadGuestData();
+    showApp();
+    document.getElementById('navName').textContent = '👤 Guest';
+    document.getElementById('familyTitle').textContent = '🌈 Guest Family 🌈';
+    toast('👤 Logged in as Guest — data saved on this device only');
+}
+
+function loadGuestData() {
+    const raw = localStorage.getItem(GUEST_KEY);
+    const data = raw ? JSON.parse(raw) : { profiles: [] };
+    profiles = data.profiles || [];
+    profiles.forEach(p => { p._count = (p.measurements||[]).length; });
+    renderProfiles();
+    if (profiles.length > 0 && !curPid) {
+        curPid = profiles[0].id;
+        renderProfiles();
+        updateDisplay();
+    }
+    updateDashboard();
+}
+
+function saveGuestData() {
+    localStorage.setItem(GUEST_KEY, JSON.stringify({ profiles }));
+}
+
+function guestId() {
+    return 'id_' + Math.random().toString(36).slice(2,10);
+}
+
+function authMsg(msg, type) {
+    const el = document.getElementById('authMsg');
+    el.innerHTML = `<div class="auth-msg ${type}">${msg}</div>`;
+    setTimeout(()=>el.innerHTML='', 5000);
+}
+
+function authErrMsg(code) {
+    return ({
+        'auth/email-already-in-use':'This email is already registered!',
+        'auth/invalid-email':'Invalid email address!',
+        'auth/weak-password':'Password is too weak!',
+        'auth/user-not-found':'No account found with this email!',
+        'auth/wrong-password':'Incorrect password!',
+        'auth/invalid-credential':'Invalid email or password!'
+    })[code] || 'An error occurred. Please try again!';
+}
+
+function showLogin() {
+    document.getElementById('loginScreen').style.display = 'flex';
+    document.getElementById('mainApp').classList.remove('active');
+    document.getElementById('topNav').classList.remove('active');
+}
+function showApp() {
+    document.getElementById('loginScreen').style.display = 'none';
+    document.getElementById('mainApp').classList.add('active');
+    document.getElementById('topNav').classList.add('active');
+}
+
+async function googleLogin() {
+    const provider = new firebase.auth.GoogleAuthProvider();
+
+    try {
+        const result = await auth.signInWithPopup(provider);
+        const user = result.user;
+
+        // Check if family document exists
+        const doc = await db.collection('families').doc(user.uid).get();
+
+        if (!doc.exists) {
+            await db.collection('families').doc(user.uid).set({
+                familyName: user.displayName + "'s Family",
+                email: user.email,
+                createdAt: firebase.firestore.FieldValue.serverTimestamp()
+            });
+        }
+
+    } catch (err) {
+        console.error(err);
+        alert("Google login failed: " + err.message);
+    }
+}
+
+// ──────────────────────────────────────────────
+// SETTINGS
+// ──────────────────────────────────────────────
+function loadCfg() {
+    const s = localStorage.getItem('hmcfg');
+    if (s) Object.assign(cfg, JSON.parse(s));
+    applyCfg();
+}
+function saveCfg() { localStorage.setItem('hmcfg', JSON.stringify(cfg)); }
+function applyCfg() {
+    document.body.classList.toggle('dark', cfg.dark);
+    setTog('togDark',  cfg.dark);
+    setTog('togConf',  cfg.confetti);
+    setTog('togNotif', cfg.notif);
+}
+function setTog(id, on) { document.getElementById(id).classList.toggle('on', on); }
+function togDarkMode()  { cfg.dark = !cfg.dark; applyCfg(); saveCfg(); if(curPid) renderChart(); }
+function togConfetti()  { cfg.confetti = !cfg.confetti; applyCfg(); saveCfg(); }
+function togNotif()     { cfg.notif    = !cfg.notif;    applyCfg(); saveCfg(); }
+function togDrop() {
+    dropOpen = !dropOpen;
+    document.getElementById('dropMenu').classList.toggle('open', dropOpen);
+    document.getElementById('setBtn').classList.toggle('on', dropOpen);
+}
+document.addEventListener('click', e => {
+    if (dropOpen && !e.target.closest('#dropMenu') && !e.target.closest('#setBtn')) {
+        dropOpen = false;
+        document.getElementById('dropMenu').classList.remove('open');
+        document.getElementById('setBtn').classList.remove('on');
+    }
+});
+
+// ──────────────────────────────────────────────
+// FAMILY DATA
+// ──────────────────────────────────────────────
+async function loadFamily() {
+    spin(true);
+    try {
+        familyId = user.uid;
+        const doc = await db.collection('families').doc(familyId).get();
+        if (doc.exists) setFamilyName(doc.data().familyName);
+        await loadProfiles();
+    } catch(e) { console.error(e); alert('Error loading data. Please refresh.'); }
+    finally { spin(false); }
+}
+
+function setFamilyName(n) {
+    document.getElementById('familyTitle').textContent = `🌈 ${n} 🌈`;
+    document.getElementById('navName').textContent = `🌈 ${n}`;
+}
+
+// ──────────────────────────────────────────────
+// PROFILES
+// ──────────────────────────────────────────────
+async function loadProfiles() {
+    if (isGuest) { loadGuestData(); return; }
+    const snap = await db.collection('families').doc(familyId).collection('profiles').orderBy('createdAt','asc').get();
+    profiles = [];
+    snap.forEach(d => profiles.push({id:d.id, ...d.data()}));
+
+    // Load measurement counts per profile from Firestore
+    await Promise.all(profiles.map(async p => {
+        const ms = await db.collection('families').doc(familyId).collection('profiles').doc(p.id).collection('measurements').get();
+        p._count = ms.size;
+    }));
+
+    renderProfiles();
+    if (profiles.length > 0 && !curPid) await selectProfile(profiles[0].id);
+    else if (curPid) await selectProfile(curPid);
+    updateDashboard();
+}
+
+function renderProfiles() {
+    const COLORS = [['#FF6B6B','#FFA500'],['#4ECDC4','#44A08D'],['#9B59B6','#E74C3C'],['#3498DB','#2ECC71'],['#F39C12','#E67E22']];
+    const grid = document.getElementById('profileGrid');
+    grid.innerHTML = profiles.map((p,i) => {
+        const c = COLORS[i % COLORS.length];
+        const gIcon = p.gender==='male'?'👦':p.gender==='female'?'👧':'🧒';
+        return `<div class="pcard${p.id===curPid?' active':''}" onclick="selectProfile('${p.id}')"
+            style="background:linear-gradient(135deg,${p.color1||c[0]},${p.color2||c[1]})">
+            <div class="av">${p.avatar||gIcon}</div>
+            <div class="pname">${p.name}</div>
+            <div class="pmeta">${p.age} yrs ${p.gender?gIcon:''}</div>
+            <div class="pbadge">${p._count||0} measurements</div>
+            <div class="p-acts">
+                <button class="p-act" onclick="openEditModal('${p.id}',event)">✏️</button>
+                <button class="p-act del" onclick="openDelModal('${p.id}',event)">🗑️</button>
+            </div>
+        </div>`;
+    }).join('') + `<div class="pcard add-pcard" onclick="openAddModal()"><div>➕</div><div style="font-size:1rem;margin-top:5px;font-weight:600;">Add Kid</div></div>`;
+}
+
+async function selectProfile(pid) {
+    curPid = pid;
+    renderProfiles();
+    await loadMeasurements();
+}
+
+async function loadMeasurements() {
+    if (!curPid) return;
+    if (isGuest) { updateDisplay(); return; }
+    const snap = await db.collection('families').doc(familyId).collection('profiles').doc(curPid).collection('measurements').orderBy('timestamp','asc').get();
+    const p = getProfile();
+    if (!p) return;
+    p.measurements = [];
+    snap.forEach(d => p.measurements.push({id:d.id, ...d.data()}));
+    p._count = p.measurements.length;
+    renderProfiles();
+    updateDisplay();
+}
+
+async function saveMeasurement(data) {
+    if (!curPid) { alert('Please select a profile first! 👶'); return; }
+    const p = getProfile();
+    try {
+        if (isGuest) {
+            const entry = { ...data, age:p.age, id:guestId(), timestamp: new Date().toISOString() };
+            if (!p.measurements) p.measurements = [];
+            p.measurements.push(entry);
+            p._count = p.measurements.length;
+            saveGuestData();
+            renderProfiles();
+            updateDisplay();
+            if (cfg.confetti) doConfetti();
+            if (cfg.notif) toast(`📏 Measurement recorded for ${p.name}! 🎉`);
+            checkMilestones(getProfile());
+        } else {
+            await db.collection('families').doc(familyId).collection('profiles').doc(curPid).collection('measurements').add({
+                ...data,
+                age: p.age,
+                timestamp: firebase.firestore.FieldValue.serverTimestamp()
+            });
+            await loadMeasurements();
+            if (cfg.confetti) doConfetti();
+            if (cfg.notif) toast(`📏 Measurement recorded for ${p.name}! 🎉`);
+            checkMilestones(getProfile());
+        }
+    } catch(e) { console.error(e); alert('Error saving measurement.'); }
+}
+
+async function delMeasurement(mid, e) {
+    e.stopPropagation();
+    if (!confirm('Delete this measurement?')) return;
+    if (isGuest) {
+        const p = getProfile();
+        if (p) { p.measurements = (p.measurements||[]).filter(x=>x.id!==mid); p._count=p.measurements.length; }
+        saveGuestData();
+        renderProfiles();
+        updateDisplay();
+        toast('🗑️ Measurement deleted.');
+    } else {
+        await db.collection('families').doc(familyId).collection('profiles').doc(curPid).collection('measurements').doc(mid).delete();
+        await loadMeasurements();
+        toast('🗑️ Measurement deleted.');
+    }
+}
+
+// ──────────────────────────────────────────────
+// ADD/EDIT/DELETE PROFILE MODALS
+// ──────────────────────────────────────────────
+function openAddModal() {
+    document.getElementById('pName').value='';
+    document.getElementById('pAge').value='';
+    document.getElementById('pBirth').value='';
+    document.getElementById('pGender').value='';
+    document.querySelectorAll('#addModal .gender-btn').forEach(b=>b.classList.remove('sel'));
+    renderAvGrid('avGrid', null);
+    document.getElementById('addModal').classList.add('open');
+}
+function closeAddModal() { document.getElementById('addModal').classList.remove('open'); }
+
+async function saveProfile() {
+    const name = V('pName'), age = parseInt(V('pAge')), birth = V('pBirth'), gender = V('pGender');
+    const av = document.querySelector('#avGrid .av-opt.sel');
+    if (!name || !age || !av) { alert('Please fill name, age and choose an avatar! 😊'); return; }
+    spin(true);
+    try {
+        const COLS = [['#FF6B6B','#FFA500'],['#4ECDC4','#44A08D'],['#9B59B6','#E74C3C'],['#3498DB','#2ECC71'],['#F39C12','#E67E22']];
+        const c = COLS[Math.floor(Math.random()*COLS.length)];
+        if (isGuest) {
+            const newP = { id:guestId(), name, age, birth, gender, avatar:av.textContent.trim(), color1:c[0], color2:c[1], measurements:[], _count:0 };
+            profiles.push(newP);
+            saveGuestData();
+            closeAddModal();
+            renderProfiles();
+            curPid = newP.id;
+            renderProfiles();
+            updateDisplay();
+            if (cfg.confetti) doConfetti();
+        } else {
+            const ref = await db.collection('families').doc(familyId).collection('profiles').add({
+                name, age, birth, gender, avatar: av.textContent.trim(),
+                color1: c[0], color2: c[1],
+                createdAt: firebase.firestore.FieldValue.serverTimestamp()
+            });
+            closeAddModal();
+            await loadProfiles();
+            await selectProfile(ref.id);
+            if (cfg.confetti) doConfetti();
+        }
+    } catch(e) { console.error(e); alert('Error creating profile.'); }
+    finally { spin(false); }
+}
+
+function openEditModal(pid, e) {
+    e.stopPropagation();
+    editPid = pid;
+    const p = profiles.find(x=>x.id===pid);
+    if (!p) return;
+    document.getElementById('eName').value = p.name;
+    document.getElementById('eAge').value  = p.age;
+    document.getElementById('eBirth').value = p.birth||'';
+    document.getElementById('eGender').value = p.gender||'';
+    document.querySelectorAll('#editModal .gender-btn').forEach(b=>{
+        b.classList.toggle('sel', b.textContent.includes(p.gender==='male'?'Boy':p.gender==='female'?'Girl':'Other'));
+    });
+    renderAvGrid('eAvGrid', p.avatar);
+    document.getElementById('editModal').classList.add('open');
+}
+function closeEditModal() { document.getElementById('editModal').classList.remove('open'); editPid=null; }
+
+async function updateProfile() {
+    const name=V('eName'), age=parseInt(V('eAge')), birth=V('eBirth'), gender=V('eGender');
+    const av = document.querySelector('#eAvGrid .av-opt.sel');
+    if (!name||!age||!av) { alert('Please fill name, age and choose an avatar! 😊'); return; }
+    spin(true);
+    try {
+        if (isGuest) {
+            const p = profiles.find(x=>x.id===editPid);
+            if (p) Object.assign(p, {name, age, birth, gender, avatar:av.textContent.trim()});
+            saveGuestData();
+            closeEditModal();
+            renderProfiles();
+            if (curPid===editPid) updateDisplay();
+            toast('✅ Profile updated!');
+        } else {
+            await db.collection('families').doc(familyId).collection('profiles').doc(editPid).update({name, age, birth, gender, avatar: av.textContent.trim()});
+            closeEditModal();
+            await loadProfiles();
+            toast('✅ Profile updated!');
+        }
+    } catch(e) { console.error(e); alert('Error updating profile.'); }
+    finally { spin(false); }
+}
+
+function openDelModal(pid, e) {
+    e.stopPropagation();
+    delPid = pid;
+    const p = profiles.find(x=>x.id===pid);
+    document.getElementById('delName').textContent = p?.name||'';
+    document.getElementById('deleteModal').classList.add('open');
+}
+function closeDelModal() { document.getElementById('deleteModal').classList.remove('open'); delPid=null; }
+
+async function confirmDelete() {
+    if (!delPid) return;
+    spin(true);
+    try {
+        if (isGuest) {
+            profiles = profiles.filter(x=>x.id!==delPid);
+            if (curPid===delPid) curPid=null;
+            saveGuestData();
+            closeDelModal();
+            renderProfiles();
+            if (curPid) updateDisplay(); else document.getElementById('histList').innerHTML='<p class="no-data">Select a profile to see history.</p>';
+            updateDashboard();
+            toast('🗑️ Profile deleted.');
+        } else {
+            const snap = await db.collection('families').doc(familyId).collection('profiles').doc(delPid).collection('measurements').get();
+            const batch = db.batch();
+            snap.forEach(d=>batch.delete(d.ref));
+            await batch.commit();
+            await db.collection('families').doc(familyId).collection('profiles').doc(delPid).delete();
+            if (curPid===delPid) curPid=null;
+            closeDelModal();
+            await loadProfiles();
+            toast('🗑️ Profile deleted.');
+        }
+    } catch(e) { console.error(e); alert('Error deleting profile.'); }
+    finally { spin(false); }
+}
+
+// ──────────────────────────────────────────────
+// FAMILY NAME
+// ──────────────────────────────────────────────
+function openFamilyModal() {
+    document.getElementById('famInput').value = document.getElementById('familyTitle').textContent.replace(/🌈/g,'').trim();
+    document.getElementById('familyModal').classList.add('open');
+}
+function closeFamilyModal() { document.getElementById('familyModal').classList.remove('open'); }
+async function saveFamilyName() {
+    const n = V('famInput');
+    if (!n) { alert('Family name cannot be empty!'); return; }
+    if (isGuest) { setFamilyName(n); closeFamilyModal(); toast('✅ Family name updated!'); return; }
+    spin(true);
+    try {
+        await db.collection('families').doc(familyId).update({familyName:n});
+        setFamilyName(n);
+        closeFamilyModal();
+        toast('✅ Family name updated!');
+    } catch(e) { console.error(e); alert('Error updating family name.'); }
+    finally { spin(false); }
+}
+
+// ──────────────────────────────────────────────
+// ENTRY TABS
+// ──────────────────────────────────────────────
+function switchTab(id, btn) {
+    document.querySelectorAll('.entry-tab').forEach(b=>b.classList.remove('active'));
+    document.querySelectorAll('.entry-panel').forEach(p=>p.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById('panel-'+id).classList.add('active');
+}
+
+// ──────────────────────────────────────────────
+// BLUETOOTH
+// Tries to auto-reconnect to saved device name on page load
+// ──────────────────────────────────────────────
+async function tryAutoReconnect() {
+    // Web Bluetooth doesn't support background auto-connect on all browsers,
+    // but we can attempt to get previously-paired devices if supported.
+    if (!navigator.bluetooth) return;
+    try {
+        // getDevices() is supported in Chrome 85+ and some browsers
+        if (navigator.bluetooth.getDevices) {
+            const devices = await navigator.bluetooth.getDevices();
+            if (devices.length > 0) {
+                const d = devices[0];
+                updateBTStatus('🔄 Auto-connecting to ' + d.name + '...', '#f39c12');
+                d.addEventListener('advertisementreceived', async () => {
+                    try {
+                        await reconnectDevice(d);
+                    } catch(e) {}
+                });
+                await d.watchAdvertisements();
+            }
+        }
+    } catch(e) {}
+}
+
+async function reconnectDevice(d) {
+    btDevice = d;
+    const server = await d.gatt.connect();
+    const svc = await server.getPrimaryService('4fafc201-1fb5-459e-8fcc-c5c9c331914b');
+    btChar = await svc.getCharacteristic('beb5483e-36e1-4688-b7f5-ea07361b26a8');
+    await btChar.startNotifications();
+    btChar.addEventListener('characteristicvaluechanged', onBTData);
+    setBTConnected(d.name);
+}
+
+async function connectBT() {
+    if (!navigator.bluetooth) {
+        alert('Web Bluetooth is not supported in this browser.\n\nPlease use Chrome (desktop/Android) or Edge.\nSafari on iOS does not support Web Bluetooth.');
+        return;
+    }
+    const btn = document.getElementById('btBtn');
+    btn.disabled=true; btn.textContent='🔄 Connecting...';
+    try {
+        btDevice = await navigator.bluetooth.requestDevice({
+            filters:[{namePrefix:'ESP32'},{namePrefix:'HeightMate'}],
+            optionalServices:['4fafc201-1fb5-459e-8fcc-c5c9c331914b']
+        });
+        await reconnectDevice(btDevice);
+    } catch(err) {
+        let msg = 'Could not connect. ';
+        if (err.name==='SecurityError')  msg+='Bluetooth requires HTTPS!';
+        else if (err.name==='NotFoundError') msg+='No HeightMate device found nearby!';
+        else msg+=err.message||'Make sure your device is powered on!';
+        alert(msg);
+        btn.textContent='🔵 Connect via Bluetooth'; btn.disabled=false;
+    }
+}
+
+function setBTConnected(name) {
+    const btn = document.getElementById('btBtn');
+    updateBTStatus(`🟢 Connected to ${name}`, '#2ecc71');
+    document.getElementById('btWait').classList.add('show');
+    btn.textContent='🔌 Disconnect'; btn.disabled=false;
+    btn.onclick = disconnectBT;
+}
+
+function updateBTStatus(msg, color) {
+    document.getElementById('btStatus').innerHTML=`<span style="color:${color||'var(--txt)'}">${msg}</span>`;
+}
+
+async function disconnectBT() {
+    if (btDevice?.gatt?.connected) await btDevice.gatt.disconnect();
+    document.getElementById('btBtn').textContent='🔵 Connect via Bluetooth';
+    document.getElementById('btBtn').onclick=connectBT; document.getElementById('btBtn').disabled=false;
+    updateBTStatus('⚪ Not Connected', 'var(--pink)');
+    document.getElementById('btWait').classList.remove('show');
+}
+
+function onBTData(event) {
+    const txt = new TextDecoder('utf-8').decode(event.target.value);
+    let h = txt.includes('HEIGHT:') ? parseFloat(txt.replace('HEIGHT:','').trim()) : parseFloat(txt.trim());
+    if (!isNaN(h) && h>0 && h<300) {
+        saveMeasurement({ height:h, type:'height', date:today() });
+    }
+}
+
+// ──────────────────────────────────────────────
+// MANUAL ENTRY
+// ──────────────────────────────────────────────
+function addManualH() {
+    const v = parseFloat(document.getElementById('manH').value);
+    if (isNaN(v)||v<50||v>250) { alert('Please enter a valid height between 50 and 250 cm!'); return; }
+    if (!curPid) { alert('Please select a profile first! 👶'); return; }
+    saveMeasurement({ height:v, type:'height', date:today() });
+    document.getElementById('manH').value='';
+}
+
+// ──────────────────────────────────────────────
+// WEIGHT + BMI
+// ──────────────────────────────────────────────
+function addWeight() {
+    const w = parseFloat(document.getElementById('manW').value);
+    if (isNaN(w)||w<5||w>300) { alert('Please enter a valid weight between 5 and 300 kg!'); return; }
+    if (!curPid) { alert('Please select a profile first! 👶'); return; }
+    const p = getProfile();
+    const ms = p.measurements||[];
+    // get latest height measurement
+    const latestH = [...ms].reverse().find(m=>m.height);
+    if (!latestH) { alert('No height measurement found for this profile.\nPlease record a height first (via Bluetooth or Manual Entry) so BMI can be calculated!'); return; }
+    const h = latestH.height / 100; // m
+    const bmi = (w / (h*h)).toFixed(1);
+    const cat = bmiCat(bmi, p.age);
+    saveMeasurement({ weight:w, bmi:parseFloat(bmi), bmiCat:cat, heightUsed:latestH.height, type:'weight', date:today() });
+    showBMI(bmi, cat, latestH.height, w);
+    document.getElementById('manW').value='';
+}
+
+function bmiCat(bmi, age) {
+    // Simple percentile-based for kids (using general ranges)
+    if (age < 18) {
+        if (bmi < 14) return 'Underweight';
+        if (bmi < 18) return 'Healthy';
+        if (bmi < 21) return 'Overweight';
+        return 'Obese';
+    }
+    if (bmi < 18.5) return 'Underweight';
+    if (bmi < 25)   return 'Healthy';
+    if (bmi < 30)   return 'Overweight';
+    return 'Obese';
+}
+
+function bmiCatColor(cat) {
+    return {Underweight:'#3498db', Healthy:'#2ecc71', Overweight:'#e67e22', Obese:'#e74c3c'}[cat]||'#aaa';
+}
+
+function showBMI(bmi, cat, h, w) {
+    const el = document.getElementById('bmiResult');
+    const emoji = {Underweight:'💧', Healthy:'✅', Overweight:'⚠️', Obese:'🚨'}[cat]||'📊';
+    el.innerHTML = `
+        <span class="bmi-big">${bmi}</span>
+        <strong>${emoji} ${cat}</strong><br>
+        <small>Height: ${h}cm · Weight: ${w}kg</small>
+    `;
+    el.style.background = `linear-gradient(135deg, ${bmiCatColor(cat)}, #34495e)`;
+    el.classList.add('show');
+    setTimeout(()=>el.classList.remove('show'), 8000);
+}
+
+// ──────────────────────────────────────────────
+// DISPLAY UPDATE
+// ──────────────────────────────────────────────
+function updateDisplay() {
+    const p = getProfile(); if (!p) return;
+    updateStats(p);
+    updateHistory(p);
+    renderChart();
+    updateAchievements(p);
+    renderIntel(p);
+    updateDashboard();
+    checkReminder(p);
+}
+
+function updateStats(p) {
+    const m = p.measurements||[];
+    const hm = m.filter(x=>x.height);
+    document.getElementById('stTotal').textContent = m.length;
+    if (hm.length>0) {
+        const cur = hm[hm.length-1].height;
+        document.getElementById('stCurrent').textContent = cur+'cm';
+        if (hm.length>1) {
+            const grow = (cur - hm[0].height).toFixed(1);
+            document.getElementById('stGrowth').textContent = grow;
+            const months = (new Date(hm[hm.length-1].date)-new Date(hm[0].date))/(1000*60*60*24*30);
+            document.getElementById('stAvg').textContent = months>0 ? (grow/months).toFixed(2) : '0';
+        } else {
+            document.getElementById('stGrowth').textContent='0';
+            document.getElementById('stAvg').textContent='0';
+        }
+    } else {
+        document.getElementById('stCurrent').textContent='--';
+        document.getElementById('stGrowth').textContent='0';
+        document.getElementById('stAvg').textContent='0';
+    }
+}
+
+function updateHistory(p) {
+    const list = document.getElementById('histList');
+    const m = [...(p.measurements||[])].reverse();
+    if (!m.length) { list.innerHTML='<p class="no-data">No measurements yet! Add one above! 📏</p>'; return; }
+    list.innerHTML = m.map((item, i) => {
+        const isH = item.type==='height'||item.height;
+        const isW = item.type==='weight'||item.weight;
+        let main='', sub='', growthTxt='';
+        if (isH) {
+            main=`<strong style="font-size:1.5rem">${item.height}cm</strong>`;
+            // growth vs prev height measurement
+            const prevH = m.slice(i+1).find(x=>x.height);
+            if (prevH) {
+                const d = (item.height - prevH.height).toFixed(1);
+                growthTxt = d>0?`<span style="color:var(--mint)">+${d}cm 📈</span>`:d<0?`<span style="color:var(--pink)">${d}cm</span>`:'';
+            }
+        }
+        if (isW) {
+            main += `${isH?' · ':''}<strong style="font-size:1.4rem">${item.weight}kg</strong>`;
+            if (item.bmi) {
+                sub = `<span style="background:${bmiCatColor(item.bmiCat)};color:white;padding:2px 10px;border-radius:10px;font-size:.85rem;margin-left:8px">BMI ${item.bmi} · ${item.bmiCat}</span>`;
+            }
+        }
+        return `<div class="hist-item">
+            <div>
+                <strong>${fmtDate(item.date)}</strong><br>
+                <small style="color:var(--txt2)">Age: ${item.age} yrs</small>
+                ${sub}
+            </div>
+            <div style="text-align:right;display:flex;align-items:center;gap:10px">
+                <div>${main}<br>${growthTxt}</div>
+                <button class="del-m" onclick="delMeasurement('${item.id}',event)">🗑️</button>
+            </div>
+        </div>`;
+    }).join('');
+}
+
+// ──────────────────────────────────────────────
+// CHART TABS
+// ──────────────────────────────────────────────
+function switchChartTab(tab, btn) {
+    currentChartTab = tab;
+    document.querySelectorAll('.ctab').forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active');
+    renderChart();
+}
+
+function renderChart() {
+    const p = getProfile(); if (!p) return;
+    const ctx = document.getElementById('mainChart').getContext('2d');
+    if (mainChart) mainChart.destroy();
+    const m = p.measurements||[];
+    const hm = m.filter(x=>x.height);
+    const wm = m.filter(x=>x.weight);
+
+    if (currentChartTab==='height') renderHeightChart(ctx, p, hm);
+    else if (currentChartTab==='monthly') renderMonthlyChart(ctx, p, hm);
+    else if (currentChartTab==='bmi') renderBMIChart(ctx, p, wm);
+    else if (currentChartTab==='prediction') renderPredictionChart(ctx, p, hm);
+}
+
+function chartDefaults() {
+    return {
+        tickColor: cfg.dark?'#aaa':'#555',
+        gridColor: cfg.dark?'rgba(255,255,255,0.1)':'rgba(0,0,0,0.08)',
+        fontFamily: 'Fredoka'
+    };
+}
+
+function renderHeightChart(ctx, p, hm) {
+    const d = chartDefaults();
+    if (!hm.length) { noDataChart(ctx); return; }
+    mainChart = new Chart(ctx, {
+        type:'line',
+        data:{
+            labels: hm.map(x=>fmtDate(x.date)),
+            datasets:[{
+                label:`${p.name}'s Height (cm)`,
+                data: hm.map(x=>x.height),
+                borderColor: p.color1||'#9B59B6',
+                backgroundColor: (p.color1||'#9B59B6')+'30',
+                borderWidth:3, fill:true, tension:.4,
+                pointRadius:6, pointHoverRadius:9,
+                pointBackgroundColor: p.color1||'#9B59B6',
+                pointBorderColor:'#fff', pointBorderWidth:2
+            }]
+        },
+        options: chartOpts(d, 'Height (cm)')
+    });
+}
+
+function renderMonthlyChart(ctx, p, hm) {
+    const d = chartDefaults();
+    if (hm.length < 2) { noDataChart(ctx, 'Need at least 2 measurements for monthly growth!'); return; }
+    const labels=[], data=[];
+    for (let i=1;i<hm.length;i++) {
+        const diff = (hm[i].height - hm[i-1].height).toFixed(2);
+        const months = (new Date(hm[i].date)-new Date(hm[i-1].date))/(1000*60*60*24*30);
+        const perMonth = months>0 ? (diff/months).toFixed(2) : diff;
+        labels.push(fmtDate(hm[i].date));
+        data.push(parseFloat(perMonth));
+    }
+    mainChart = new Chart(ctx, {
+        type:'bar',
+        data:{
+            labels,
+            datasets:[{
+                label:'Growth per period (cm)',
+                data,
+                backgroundColor: data.map(v=>v>=0?'rgba(78,205,196,0.7)':'rgba(255,107,157,0.7)'),
+                borderColor: data.map(v=>v>=0?'var(--mint)':'var(--pink)'),
+                borderWidth:2, borderRadius:8
+            }]
+        },
+        options: chartOpts(d, 'Growth (cm)')
+    });
+}
+
+function renderBMIChart(ctx, p, wm) {
+    const d = chartDefaults();
+    if (!wm.length) { noDataChart(ctx, 'No weight measurements yet! Log your weight to see BMI trend.'); return; }
+    mainChart = new Chart(ctx, {
+        type:'line',
+        data:{
+            labels: wm.map(x=>fmtDate(x.date)),
+            datasets:[{
+                label:`${p.name}'s BMI`,
+                data: wm.map(x=>x.bmi),
+                borderColor:'#E67E22',
+                backgroundColor:'rgba(230,126,34,0.2)',
+                borderWidth:3, fill:true, tension:.4,
+                pointRadius:6, pointHoverRadius:9,
+                pointBackgroundColor:'#E67E22',
+                pointBorderColor:'#fff', pointBorderWidth:2
+            }]
+        },
+        options: {
+            ...chartOpts(d, 'BMI'),
+            plugins:{
+                ...chartOpts(d,'BMI').plugins,
+                annotation: {}
+            }
+        }
+    });
+}
+
+function renderPredictionChart(ctx, p, hm) {
+    const d = chartDefaults();
+    if (hm.length < 2) { noDataChart(ctx, 'Need at least 2 measurements for predictions!'); return; }
+    const actual = hm.map(x=>({x:new Date(x.date), y:x.height}));
+    const last = hm[hm.length-1];
+    const months = (new Date(hm[hm.length-1].date)-new Date(hm[0].date))/(1000*60*60*24*30);
+    const growthPerMonth = months>0 ? (last.height-hm[0].height)/months : 0;
+    const predLabels=[], predData=[];
+    for (let m=1;m<=12;m++) {
+        const d2 = new Date(last.date);
+        d2.setMonth(d2.getMonth()+m);
+        predLabels.push(fmtDate(d2.toISOString().split('T')[0]));
+        predData.push(+(last.height + growthPerMonth*m).toFixed(1));
+    }
+    const allLabels = hm.map(x=>fmtDate(x.date)).concat(predLabels);
+    mainChart = new Chart(ctx, {
+        type:'line',
+        data:{
+            labels: allLabels,
+            datasets:[
+                {
+                    label:'Actual Height',
+                    data: hm.map(x=>x.height).concat(Array(12).fill(null)),
+                    borderColor: p.color1||'#9B59B6',
+                    backgroundColor: (p.color1||'#9B59B6')+'30',
+                    borderWidth:3, fill:true, tension:.4,
+                    pointRadius:5, pointHoverRadius:8,
+                    pointBackgroundColor: p.color1||'#9B59B6',
+                    pointBorderColor:'#fff', pointBorderWidth:2
+                },
+                {
+                    label:'12-Month Prediction',
+                    data: Array(hm.length-1).fill(null).concat([last.height]).concat(predData),
+                    borderColor:'#E74C3C', backgroundColor:'rgba(231,76,60,0.1)',
+                    borderWidth:3, borderDash:[6,4], fill:true, tension:.4,
+                    pointRadius:4, pointBackgroundColor:'#E74C3C',
+                    pointBorderColor:'#fff', pointBorderWidth:2
+                }
+            ]
+        },
+        options: chartOpts(d, 'Height (cm)')
+    });
+}
+
+function chartOpts(d, yLabel) {
+    return {
+        responsive:true, maintainAspectRatio:false,
+        plugins:{
+            legend:{labels:{font:{family:d.fontFamily,size:13}, color:d.tickColor}},
+            tooltip:{titleFont:{family:d.fontFamily}, bodyFont:{family:d.fontFamily}}
+        },
+        scales:{
+            y:{beginAtZero:false, title:{display:true,text:yLabel,color:d.tickColor,font:{family:d.fontFamily}},
+               ticks:{font:{family:d.fontFamily},color:d.tickColor},
+               grid:{color:d.gridColor}},
+            x:{ticks:{font:{family:d.fontFamily},color:d.tickColor,maxRotation:45,minRotation:45},
+               grid:{color:d.gridColor}}
+        }
+    };
+}
+
+function noDataChart(ctx, msg) {
+    ctx.clearRect(0,0,ctx.canvas.width,ctx.canvas.height);
+    ctx.font = '20px Fredoka';
+    ctx.fillStyle = '#999';
+    ctx.textAlign = 'center';
+    ctx.fillText(msg||'No data yet! Add measurements above 📏', ctx.canvas.width/2, ctx.canvas.height/2);
+}
+
+// ──────────────────────────────────────────────
+// GROWTH INTELLIGENCE
+// ──────────────────────────────────────────────
+function renderIntel(p) {
+    const el = document.getElementById('intelContent');
+    const m = (p.measurements||[]).filter(x=>x.height);
+    if (m.length < 2) {
+        el.innerHTML='<p class="no-data">Add at least 2 height measurements to see growth insights! 💡</p>';
+        return;
+    }
+    const msgs = [];
+    const last = m[m.length-1], first = m[0];
+    const totalGrowth = (last.height - first.height).toFixed(1);
+    const now = new Date(), firstDate = new Date(first.date), lastDate = new Date(last.date);
+    const totalMonths = (lastDate - firstDate)/(1000*60*60*24*30);
+
+    // Last 3 months growth
+    const threeMonthsAgo = new Date(); threeMonthsAgo.setMonth(threeMonthsAgo.getMonth()-3);
+    const recent = m.filter(x=>new Date(x.date)>=threeMonthsAgo);
+    if (recent.length >= 2) {
+        const rGrowth = (recent[recent.length-1].height - recent[0].height).toFixed(1);
+        const rMonths = (new Date(recent[recent.length-1].date)-new Date(recent[0].date))/(1000*60*60*24*30)||1;
+        msgs.push({type:'info', icon:'📏', head:'Recent Growth (last 3 months)', body:`${p.name} grew <strong>${rGrowth} cm</strong> in the past ~3 months (${(rGrowth/rMonths).toFixed(2)} cm/month).`});
+    }
+
+    // WHO comparison
+    const gender = (p.gender||'male').toLowerCase()==='female'?'female':'male';
+    const expectedPerYear = WHO_GROWTH[gender]?.[p.age] || WHO_GROWTH[gender]?.[Math.min(18,Math.max(2,p.age))];
+    if (totalMonths >= 1 && expectedPerYear) {
+        const actualPerYear = (totalGrowth / (totalMonths/12));
+        const ratio = actualPerYear / expectedPerYear;
+        if (ratio >= 0.9) {
+            msgs.push({type:'good', icon:'✅', head:'Growth Rate: Healthy', body:`${p.name} is growing at <strong>${actualPerYear.toFixed(1)} cm/year</strong>. Expected for a ${p.age}-year-old ${gender}: ~${expectedPerYear} cm/year. Growth is on track! 🎉`});
+        } else if (ratio >= 0.65) {
+            msgs.push({type:'warn', icon:'⚠️', head:'Growth Rate: Slightly Below Average', body:`${p.name} is growing at <strong>${actualPerYear.toFixed(1)} cm/year</strong>. Expected for age ${p.age}: ~${expectedPerYear} cm/year. Keep tracking — if this persists, consider a check-up with your pediatrician.`});
+        } else {
+            msgs.push({type:'warn', icon:'🩺', head:'Growth Slower Than Average', body:`${p.name}'s growth rate of <strong>${actualPerYear.toFixed(1)} cm/year</strong> is significantly below the expected ~${expectedPerYear} cm/year for their age. <strong>Consider consulting a pediatrician.</strong>`});
+        }
+    }
+
+    // BMI insight
+    const latestBMI = [...(p.measurements||[])].reverse().find(x=>x.bmi);
+    if (latestBMI) {
+        const catEmoji = {Underweight:'💧',Healthy:'✅',Overweight:'⚠️',Obese:'🚨'}[latestBMI.bmiCat]||'📊';
+        const catType = {Healthy:'good',Underweight:'warn',Overweight:'warn',Obese:'warn'}[latestBMI.bmiCat]||'info';
+        msgs.push({type:catType, icon:catEmoji, head:`BMI: ${latestBMI.bmi} (${latestBMI.bmiCat})`, body:`Last recorded weight: <strong>${latestBMI.weight} kg</strong> at <strong>${latestBMI.heightUsed} cm</strong>.${latestBMI.bmiCat==='Healthy'?' Keep up the great work!':" Consult a healthcare provider for personalised guidance."}`});
+    }
+
+    // Prediction
+    if (totalMonths >= 1) {
+        const growthPerMonth = totalGrowth / totalMonths;
+        const predicted1y = (last.height + growthPerMonth*12).toFixed(1);
+        msgs.push({type:'info', icon:'🔮', head:'Yearly Growth Prediction', body:`At the current rate, ${p.name} may reach approximately <strong>${predicted1y} cm</strong> in 12 months (+${(growthPerMonth*12).toFixed(1)} cm predicted).`});
+    }
+
+    // Total summary
+    msgs.push({type:'normal', icon:'🌱', head:'Overall Progress', body:`${p.name} has grown a total of <strong>${totalGrowth} cm</strong> since tracking started. Keep up the great work!`});
+
+    el.innerHTML = msgs.map(m=>`
+        <div class="intel-msg ${m.type}">
+            <div class="intel-icon">${m.icon}</div>
+            <div class="intel-text"><div class="intel-head">${m.head}</div><div>${m.body}</div></div>
+        </div>
+    `).join('');
+}
+
+// ──────────────────────────────────────────────
+// ACHIEVEMENTS
+// ──────────────────────────────────────────────
+function updateAchievements(p) {
+    const grid = document.getElementById('achGrid');
+    const m = p.measurements||[];
+    const hm = m.filter(x=>x.height);
+    grid.innerHTML = ACHIEVEMENTS.map(a=>{
+        let on = false;
+        if (a.type==='m') on = m.length >= a.thr;
+        else if (a.type==='g' && hm.length>1) on = (hm[hm.length-1].height - hm[0].height) >= a.thr;
+        return `<div class="ach ${on?'on':'off'}">
+            <div class="ach-ico">${on?a.icon:'🔒'}</div>
+            <div class="ach-nm">${a.name}</div>
+        </div>`;
+    }).join('');
+}
+
+// ──────────────────────────────────────────────
+// MILESTONES
+// ──────────────────────────────────────────────
+function checkMilestones(p) {
+    const hm = (p.measurements||[]).filter(x=>x.height);
+    if (hm.length < 2) return;
+    const total = hm[hm.length-1].height - hm[0].height;
+    const banner = document.getElementById('milestoneBanner');
+    const text   = document.getElementById('milestoneText');
+    for (const ms of [{t:20,m:'👑 20cm total growth — SUPERSTAR!'},{t:15,m:'🏆 15cm total — CHAMPION!'},{t:10,m:'🎯 10cm milestone!'},{t:5,m:'📏 5cm milestone!'}]) {
+        if (Math.floor(total) >= ms.t) {
+            text.textContent = ms.m;
+            banner.classList.add('show');
+            return;
+        }
+    }
+}
+
+// ──────────────────────────────────────────────
+// EXPORT
+// ──────────────────────────────────────────────
+function exportAll() {
+    if (!profiles.length) { alert('No profiles to export!'); return; }
+    let csv = 'Profile,Avatar,Gender,Age,Birthdate,Date,Height (cm),Weight (kg),BMI,BMI Category\n';
+    profiles.forEach(p=>{
+        const m = p.measurements||[];
+        if (!m.length) csv+=`${p.name},${p.avatar||''},${p.gender||''},${p.age},${p.birth||''},,,,\n`;
+        else m.forEach(x=>{ csv+=`${p.name},${p.avatar||''},${p.gender||''},${x.age||p.age},${p.birth||''},${x.date||''},${x.height||''},${x.weight||''},${x.bmi||''},${x.bmiCat||''}\n`; });
+    });
+    dlCSV(csv, 'heightmate_all_data.csv');
+    toast('📤 All data exported!');
+}
+
+function exportProfile() {
+    const p = getProfile(); if (!p) { alert('No profile selected!'); return; }
+    const m = p.measurements||[];
+    if (!m.length) { alert('No measurements to export!'); return; }
+    let csv=`HeightMate Pro - ${p.name}\nDate,Age,Height (cm),Weight (kg),BMI,BMI Category\n`;
+    m.forEach(x=>{ csv+=`${x.date},${x.age||p.age},${x.height||''},${x.weight||''},${x.bmi||''},${x.bmiCat||''}\n`; });
+    dlCSV(csv, `${p.name.replace(/ /g,'_')}_data.csv`);
+    toast(`📥 ${p.name}'s data exported!`);
+}
+
+function dlCSV(content, filename) {
+    const blob = new Blob([content],{type:'text/csv;charset=utf-8;'});
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement('a');
+    a.href=url; a.download=filename; a.click();
+    URL.revokeObjectURL(url);
+}
+
+// ──────────────────────────────────────────────
+// AVATAR GRID
+// ──────────────────────────────────────────────
+function renderAvGrid(elId, selected) {
+    document.getElementById(elId).innerHTML = AVATARS.map(a=>
+        `<div class="av-opt${a===selected?' sel':''}" onclick="pickAv('${elId}',this)">${a}</div>`
+    ).join('');
+}
+function pickAv(elId, el) {
+    document.querySelectorAll(`#${elId} .av-opt`).forEach(x=>x.classList.remove('sel'));
+    el.classList.add('sel');
+}
+
+// Gender selector
+function selGender(el, val, scope) {
+    const row = scope==='edit' ? document.getElementById('editGenderRow') : el.closest('.gender-row');
+    row.querySelectorAll('.gender-btn').forEach(b=>b.classList.remove('sel'));
+    el.classList.add('sel');
+    document.getElementById(scope==='edit'?'eGender':'pGender').value = val;
+}
+
+// ──────────────────────────────────────────────
+// UTILITIES
+// ──────────────────────────────────────────────
+function getProfile() { return profiles.find(p=>p.id===curPid); }
+function V(id) { return document.getElementById(id).value.trim(); }
+function today() { return new Date().toISOString().split('T')[0]; }
+function fmtDate(d) {
+    if (!d) return '';
+    return new Date(d+'T00:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric',year:'2-digit'});
+}
+
+function spin(show) { document.getElementById('spinner').classList.toggle('show',show); }
+
+function toast(msg) {
+    const n = document.createElement('div');
+    n.className='toast'; n.textContent=msg;
+    document.body.appendChild(n);
+    setTimeout(()=>{ n.style.opacity='0'; n.style.transform='translateX(30px)'; n.style.transition='all .4s'; setTimeout(()=>n.remove(),400); }, 3000);
+}
+
+function doConfetti() {
+    const cols=['#FFD700','#FF6B9D','#90EE90','#87CEEB','#9B59B6','#FF6B6B','#4ECDC4'];
+    for (let i=0;i<60;i++) setTimeout(()=>{
+        const c=document.createElement('div');
+        c.className='confetti-p';
+        c.style.cssText=`left:${Math.random()*100}vw;top:-10px;background:${cols[Math.floor(Math.random()*cols.length)]};animation-delay:${Math.random()*.5}s;width:${6+Math.random()*8}px;height:${6+Math.random()*8}px;border-radius:${Math.random()>.5?'50%':'3px'}`;
+        document.body.appendChild(c);
+        setTimeout(()=>c.remove(),3500);
+    }, i*40);
+}
+
+// ──────────────────────────────────────────────
+// DASHBOARD
+// ──────────────────────────────────────────────
+function updateDashboard() {
+    // Profile count
+    document.getElementById('dProfiles').textContent = profiles.length;
+
+    // Total measurements across all profiles
+    const totalAll = profiles.reduce((s,p)=>s+(p._count||0),0);
+    document.getElementById('dTotalMeas').textContent = totalAll;
+
+    // Last measurement across all profiles
+    let latestDate = null;
+    profiles.forEach(p=>{
+        const m = (p.measurements||[]).filter(x=>x.date);
+        if (m.length) {
+            const d = new Date(m[m.length-1].date);
+            if (!latestDate || d > latestDate) latestDate = d;
+        }
+    });
+    if (latestDate) {
+        const daysAgo = Math.floor((new Date()-latestDate)/(1000*60*60*24));
+        document.getElementById('dLastMeas').textContent = daysAgo===0?'Today':daysAgo===1?'Yesterday':`${daysAgo}d ago`;
+    } else {
+        document.getElementById('dLastMeas').textContent = 'None yet';
+    }
+
+    // Current profile stats
+    const p = getProfile();
+    if (p) {
+        const hm = (p.measurements||[]).filter(x=>x.height);
+        document.getElementById('dCurHeight').textContent = hm.length ? hm[hm.length-1].height+'cm' : '—';
+
+        // Growth status
+        if (hm.length >= 2) {
+            const totalMonths = (new Date(hm[hm.length-1].date)-new Date(hm[0].date))/(1000*60*60*24*30);
+            const totalGrowth = hm[hm.length-1].height - hm[0].height;
+            const gender = (p.gender||'male')==='female'?'female':'male';
+            const expected = WHO_GROWTH[gender]?.[p.age]||6;
+            const actual = totalMonths>0 ? (totalGrowth/(totalMonths/12)) : 0;
+            const status = actual >= expected*0.9 ? 'Normal 🟢' : actual >= expected*0.65 ? 'Monitor ⚠️' : 'Slow 🔴';
+            document.getElementById('dGrowthStatus').textContent = status;
+        } else {
+            document.getElementById('dGrowthStatus').textContent = 'Need data';
+        }
+
+        // Next reminder
+        const lastMeasDate = p.measurements?.length ?
+            new Date(p.measurements[p.measurements.length-1].date) : null;
+        if (lastMeasDate) {
+            const nextDate = new Date(lastMeasDate);
+            nextDate.setDate(nextDate.getDate()+30);
+            const daysLeft = Math.ceil((nextDate-new Date())/(1000*60*60*24));
+            document.getElementById('dNextMeas').textContent = daysLeft<=0?'Now!':daysLeft===1?'Tomorrow':`${daysLeft}d`;
+        } else {
+            document.getElementById('dNextMeas').textContent = 'Now!';
+        }
+    } else {
+        document.getElementById('dCurHeight').textContent = '—';
+        document.getElementById('dGrowthStatus').textContent = '—';
+        document.getElementById('dNextMeas').textContent = '—';
+    }
+}
+
+// ──────────────────────────────────────────────
+// GROWTH REMINDERS
+// ──────────────────────────────────────────────
+function checkReminder(p) {
+    if (!p || !p.measurements?.length) return;
+    const last = p.measurements[p.measurements.length-1];
+    if (!last?.date) return;
+    const daysAgo = Math.floor((new Date()-new Date(last.date+'T00:00:00'))/(1000*60*60*24));
+    const bar = document.getElementById('reminderBar');
+    const txt = document.getElementById('reminderText');
+    if (daysAgo >= 30) {
+        txt.textContent = `Last measurement was ${daysAgo} days ago — time to measure ${p.name} again! 📏`;
+        bar.classList.add('show');
+    } else if (daysAgo >= 25) {
+        txt.textContent = `Measure ${p.name} again in ${30-daysAgo} days (last: ${daysAgo} days ago)`;
+        bar.classList.add('show');
+    } else {
+        bar.classList.remove('show');
+    }
+}
+
+function switchTabAndScroll(tabId) {
+    const tabMap = {bt:'🔵 Bluetooth Device', manual:'✏️ Manual Entry', weight:'⚖️ Log Weight + BMI'};
+    const id = tabId || 'manual';
+    document.querySelectorAll('.entry-tab').forEach(b=>{
+        if (b.textContent.includes(id==='bt'?'Bluetooth':id==='manual'?'Manual':'Weight')) {
+            b.click();
+        }
+    });
+    document.querySelector('.entry-section').scrollIntoView({behavior:'smooth', block:'start'});
+}
+
+// ──────────────────────────────────────────────
+// PDF GROWTH REPORT
+// ──────────────────────────────────────────────
+async function downloadPDF() {
+    const p = getProfile();
+    if (!p) { alert('Please select a profile first!'); return; }
+    const hm = (p.measurements||[]).filter(x=>x.height);
+    if (!hm.length) { alert('No height measurements to include in the report!'); return; }
+
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF({ orientation:'portrait', unit:'mm', format:'a4' });
+    const W = 210, margin = 18;
+    let y = 0;
+
+    // ── Header gradient bar ──
+    doc.setFillColor(155, 89, 182);
+    doc.rect(0, 0, W, 42, 'F');
+    doc.setFillColor(62, 191, 176);
+    doc.rect(0, 36, W, 8, 'F');
+
+    doc.setTextColor(255,255,255);
+    doc.setFontSize(26);
+    doc.setFont('helvetica','bold');
+    doc.text('HeightMate Pro', margin, 16);
+    doc.setFontSize(13);
+    doc.setFont('helvetica','normal');
+    doc.text('Growth Report', margin, 25);
+    doc.setFontSize(10);
+    doc.text(`Generated: ${new Date().toLocaleDateString('en-US',{year:'numeric',month:'long',day:'numeric'})}`, margin, 33);
+    y = 54;
+
+    // ── Child info card ──
+    doc.setFillColor(248, 245, 255);
+    doc.roundedRect(margin, y, W-margin*2, 36, 5, 5, 'F');
+    doc.setDrawColor(155,89,182);
+    doc.setLineWidth(0.5);
+    doc.roundedRect(margin, y, W-margin*2, 36, 5, 5, 'S');
+
+    const gIcon = p.gender==='female'?'Girl':'Boy';
+    doc.setTextColor(155,89,182);
+    doc.setFontSize(16);
+    doc.setFont('helvetica','bold');
+    doc.text(p.avatar?`${p.name}`:`${p.name}`, margin+8, y+12);
+    doc.setTextColor(80,80,80);
+    doc.setFontSize(10);
+    doc.setFont('helvetica','normal');
+    doc.text(`Age: ${p.age} years  |  Gender: ${gIcon}${p.birth?' | Birthdate: '+p.birth:''}`, margin+8, y+22);
+
+    const curH = hm[hm.length-1].height;
+    const totalG = hm.length>1 ? (curH-hm[0].height).toFixed(1) : '—';
+    doc.text(`Current Height: ${curH} cm  |  Total Growth: ${totalG} cm  |  Measurements: ${hm.length}`, margin+8, y+31);
+    y += 46;
+
+    // ── Growth chart (capture canvas) ──
+    try {
+        // Temporarily switch to height chart
+        const canvas = document.getElementById('mainChart');
+        if (canvas && mainChart) {
+            const imgData = canvas.toDataURL('image/png');
+            const chartH = 60;
+            doc.setFillColor(255,255,255);
+            doc.roundedRect(margin, y, W-margin*2, chartH+6, 4, 4, 'F');
+            doc.setDrawColor(200,200,200);
+            doc.roundedRect(margin, y, W-margin*2, chartH+6, 4, 4, 'S');
+            doc.addImage(imgData, 'PNG', margin+2, y+2, W-margin*2-4, chartH+2);
+            y += chartH + 14;
+        }
+    } catch(e) {}
+
+    // ── Section: Growth Intelligence Summary ──
+    doc.setFillColor(62,191,176);
+    doc.rect(margin, y, 3, 10, 'F');
+    doc.setTextColor(62,191,176);
+    doc.setFontSize(13);
+    doc.setFont('helvetica','bold');
+    doc.text('Growth Intelligence', margin+7, y+8);
+    y += 16;
+
+    if (hm.length >= 2) {
+        const totalMonths = (new Date(hm[hm.length-1].date)-new Date(hm[0].date))/(1000*60*60*24*30);
+        const totalGrowth = curH - hm[0].height;
+        const gender2 = (p.gender||'male')==='female'?'female':'male';
+        const expected = WHO_GROWTH[gender2]?.[p.age]||6;
+        const actualPerYear = totalMonths>0?(totalGrowth/(totalMonths/12)).toFixed(1):0;
+        const status = actualPerYear>=expected*0.9?'Healthy ✓':actualPerYear>=expected*0.65?'Monitor — slightly below average':'Slow — consult a pediatrician';
+
+        const intel = [
+            `Growth Rate: ${actualPerYear} cm/year (expected ~${expected} cm/year for age ${p.age})`,
+            `Status: ${status}`,
+            `Total tracked growth: ${totalGrowth.toFixed(1)} cm over ${totalMonths.toFixed(1)} months`,
+        ];
+        if (hm.length>=2) {
+            const gpm = (totalGrowth/totalMonths).toFixed(2);
+            const pred = (curH + parseFloat(gpm)*12).toFixed(1);
+            intel.push(`12-Month Prediction: ~${pred} cm at current growth rate`);
+        }
+
+        intel.forEach(line => {
+            doc.setFillColor(245,240,255);
+            doc.roundedRect(margin, y, W-margin*2, 9, 2, 2, 'F');
+            doc.setTextColor(60,60,60);
+            doc.setFont('helvetica','normal');
+            doc.setFontSize(9.5);
+            doc.text(line, margin+5, y+6.3);
+            y += 12;
+        });
+    }
+    y += 6;
+
+    // ── Section: Measurement History ──
+    if (y > 230) { doc.addPage(); y = 20; }
+    doc.setFillColor(255,107,157);
+    doc.rect(margin, y, 3, 10, 'F');
+    doc.setTextColor(255,107,157);
+    doc.setFontSize(13);
+    doc.setFont('helvetica','bold');
+    doc.text('Height Measurement History', margin+7, y+8);
+    y += 15;
+
+    // Table header
+    doc.setFillColor(155,89,182);
+    doc.rect(margin, y, W-margin*2, 9, 'F');
+    doc.setTextColor(255,255,255);
+    doc.setFontSize(9);
+    doc.setFont('helvetica','bold');
+    doc.text('Date', margin+4, y+6.3);
+    doc.text('Age', margin+42, y+6.3);
+    doc.text('Height', margin+65, y+6.3);
+    doc.text('Growth', margin+95, y+6.3);
+    doc.text('Notes', margin+125, y+6.3);
+    y += 10;
+
+    const rows = [...hm].reverse();
+    rows.forEach((item, idx) => {
+        if (y > 270) { doc.addPage(); y = 20; }
+        const bg = idx%2===0 ? [248,245,255] : [255,255,255];
+        doc.setFillColor(...bg);
+        doc.rect(margin, y, W-margin*2, 8, 'F');
+        doc.setTextColor(60,60,60);
+        doc.setFont('helvetica','normal');
+        doc.setFontSize(9);
+        doc.text(fmtDate(item.date), margin+4, y+5.5);
+        doc.text(`${item.age} yrs`, margin+42, y+5.5);
+        doc.text(`${item.height} cm`, margin+65, y+5.5);
+        // growth vs previous
+        const prevH = rows[idx+1]?.height;
+        if (prevH) {
+            const diff = (item.height - prevH).toFixed(1);
+            doc.setTextColor(diff>0?39:diff<0?192:120, diff>0?174:diff<0?57:120, diff>0?96:diff<0?43:120);
+            doc.text(diff>0?`+${diff} cm`:diff<0?`${diff} cm`:'—', margin+95, y+5.5);
+        } else {
+            doc.setTextColor(150,150,150);
+            doc.text('First', margin+95, y+5.5);
+        }
+        doc.setTextColor(150,150,150);
+        const wm = (p.measurements||[]).reverse().find(x=>x.weight && new Date(x.date)<=new Date(item.date+'T23:59:59'));
+        if (wm?.bmi) {
+            doc.text(`BMI ${wm.bmi} (${wm.bmiCat})`, margin+125, y+5.5);
+        }
+        y += 9;
+    });
+
+    // ── Footer ──
+    const pageCount = doc.internal.getNumberOfPages();
+    for (let i=1;i<=pageCount;i++) {
+        doc.setPage(i);
+        doc.setFillColor(155,89,182);
+        doc.rect(0, 287, W, 10, 'F');
+        doc.setTextColor(255,255,255);
+        doc.setFontSize(8);
+        doc.setFont('helvetica','normal');
+        doc.text('HeightMate Pro — Family Growth Tracker', margin, 293.5);
+        doc.text(`Page ${i} of ${pageCount}`, W-margin-18, 293.5);
+    }
+
+    doc.save(`${p.name.replace(/ /g,'_')}_Growth_Report.pdf`);
+    toast(`📄 Growth Report downloaded for ${p.name}!`);
+}
+
+// ──────────────────────────────────────────────
+// Try auto-reconnect on load for supported browsers
+// ──────────────────────────────────────────────
+window.addEventListener('load', () => {
+    setTimeout(tryAutoReconnect, 2000);
+});
+</script>
+</body>
+</html>
